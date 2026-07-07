@@ -28,7 +28,7 @@ create table if not exists public.ppt_materials (
 create table if not exists public.site_settings (
   id uuid primary key default gen_random_uuid(),
   site_name text default 'Pastel PPT Library',
-  header_title text default '파스텔크래프트 수업용 PPT 자료실',
+  header_title text default '파스텔에듀 수업자료실',
   header_description text default '',
   logo_url text,
   favicon_url text,
@@ -114,7 +114,7 @@ insert into public.site_settings (
 )
 select
   'Pastel PPT Library',
-  '파스텔크래프트 수업용 PPT 자료실',
+  '파스텔에듀 수업자료실',
   '필요한 수업자료를 카테고리별로 확인하고 다운로드할 수 있습니다.',
   '#ffffff',
   '#ffffff',

@@ -20,7 +20,7 @@ type SiteForm = {
 
 const emptyForm: SiteForm = {
   site_name: "Pastel PPT Library",
-  header_title: "파스텔크래프트 수업용 PPT 자료실",
+  header_title: "파스텔에듀 수업자료실",
   header_description: "필요한 수업자료를 카테고리별로 확인하고 다운로드할 수 있습니다.",
   logo_url: "",
   favicon_url: ""

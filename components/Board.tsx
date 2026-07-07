@@ -18,7 +18,7 @@ type Props = {
 
 const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> = {
   site_name: "Pastel PPT Library",
-  header_title: "파스텔크래프트 수업용 PPT 자료실",
+  header_title: "파스텔에듀 수업자료실",
   header_description: "",
   logo_url: null,
   favicon_url: null,
