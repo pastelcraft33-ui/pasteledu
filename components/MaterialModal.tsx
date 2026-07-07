@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { PptMaterial, SiteSettings } from "@/lib/types";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
@@ -15,7 +15,11 @@ type Props = {
 
 export default function MaterialModal({ material, categoryName, settings, onClose }: Props) {
   const formattedDate = formatDate(material.created_at);
-  const previewUrl = material.file_url ? createOfficePreviewUrl(material.file_url) : "";
+  const fileUrl = material.file_url ?? "";
+  const [viewer, setViewer] = useState<"office" | "google">("office");
+  const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
+  const [isPreviewSlow, setIsPreviewSlow] = useState(false);
+  const previewUrl = fileUrl ? createPreviewUrl(fileUrl, viewer) : "";
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -30,6 +34,28 @@ export default function MaterialModal({ material, categoryName, settings, onClos
       document.body.style.overflow = "";
     };
   }, [onClose]);
+
+  useEffect(() => {
+    setViewer("office");
+    setIsPreviewLoaded(false);
+    setIsPreviewSlow(false);
+  }, [material.id]);
+
+  useEffect(() => {
+    if (!previewUrl) return;
+
+    setIsPreviewLoaded(false);
+    setIsPreviewSlow(false);
+    const slowTimer = window.setTimeout(() => setIsPreviewSlow(true), 8000);
+
+    return () => window.clearTimeout(slowTimer);
+  }, [previewUrl]);
+
+  function switchViewer(nextViewer: "office" | "google") {
+    setViewer(nextViewer);
+    setIsPreviewLoaded(false);
+    setIsPreviewSlow(false);
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black text-gray-950" role="dialog" aria-modal="true" aria-label={`${material.title} PPT 미리보기`}>
@@ -46,12 +72,55 @@ export default function MaterialModal({ material, categoryName, settings, onClos
       <div className="flex h-full flex-col lg:flex-row">
         <div className="flex min-h-0 flex-1 items-center justify-center bg-black pt-14 lg:pt-0">
           {previewUrl ? (
-            <iframe
-              src={previewUrl}
-              title={`${material.title} PPT 미리보기`}
-              className="h-full min-h-[62vh] w-full border-0 bg-black"
-              allowFullScreen
-            />
+            <div className="relative h-full min-h-[62vh] w-full">
+              <iframe
+                key={previewUrl}
+                src={previewUrl}
+                title={`${material.title} PPT 미리보기`}
+                className="h-full w-full border-0 bg-black"
+                allowFullScreen
+                loading="eager"
+                onLoad={() => setIsPreviewLoaded(true)}
+              />
+              {!isPreviewLoaded ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-white">
+                  <div className="max-w-md">
+                    {material.thumbnail_url ? (
+                      <Image
+                        src={material.thumbnail_url}
+                        alt={`${material.title} 썸네일`}
+                        width={640}
+                        height={360}
+                        className="mx-auto mb-5 aspect-video w-full max-w-sm rounded-md object-cover opacity-80"
+                      />
+                    ) : null}
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-white/25 border-t-white" />
+                    <p className="mt-4 text-sm font-semibold">PPT 미리보기를 불러오는 중입니다...</p>
+                    <p className="mt-2 text-xs leading-5 text-white/70">
+                      첫 미리보기는 외부 뷰어가 PPT를 변환하느라 시간이 걸릴 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+              {isPreviewSlow ? (
+                <div className="absolute bottom-4 left-1/2 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-lg bg-white p-4 text-sm text-gray-700 shadow-lg">
+                  <p className="font-bold text-gray-950">미리보기가 오래 걸리고 있습니다.</p>
+                  <p className="mt-1 leading-5">외부 PPT 뷰어 변환이 지연될 수 있습니다. 다른 뷰어로 다시 시도하거나 원본 파일을 새 창에서 열어주세요.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => switchViewer(viewer === "office" ? "google" : "office")}
+                      className="rounded-md bg-gray-900 px-3 py-2 text-xs font-bold text-white"
+                    >
+                      {viewer === "office" ? "Google 뷰어로 시도" : "Microsoft 뷰어로 시도"}
+                    </button>
+                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border px-3 py-2 text-xs font-bold">
+                      원본 파일 열기
+                    </a>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <div className="mx-4 flex w-full max-w-4xl flex-col items-center justify-center rounded-lg bg-white p-8 text-center">
               {material.thumbnail_url ? (
@@ -108,9 +177,29 @@ export default function MaterialModal({ material, categoryName, settings, onClos
           </dl>
 
           <div className="mt-6 flex flex-col gap-2">
-            {material.file_url ? (
+            {fileUrl ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => switchViewer("office")}
+                  className={`rounded-md border px-3 py-2 text-xs font-bold ${viewer === "office" ? "bg-gray-900 text-white" : "bg-white text-gray-700"}`}
+                  style={{ borderColor: settings.card_border_color }}
+                >
+                  Microsoft 뷰어
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchViewer("google")}
+                  className={`rounded-md border px-3 py-2 text-xs font-bold ${viewer === "google" ? "bg-gray-900 text-white" : "bg-white text-gray-700"}`}
+                  style={{ borderColor: settings.card_border_color }}
+                >
+                  Google 뷰어
+                </button>
+              </div>
+            ) : null}
+            {fileUrl ? (
               <a
-                href={material.file_url}
+                href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md border px-4 py-3 text-center text-sm font-bold"
@@ -119,9 +208,9 @@ export default function MaterialModal({ material, categoryName, settings, onClos
                 원본 파일 새 창에서 열기
               </a>
             ) : null}
-            {material.is_downloadable && material.file_url ? (
+            {material.is_downloadable && fileUrl ? (
               <a
-                href={material.file_url}
+                href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md px-4 py-3 text-center text-sm font-bold text-white"
@@ -133,7 +222,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
           </div>
 
           <p className="mt-5 text-xs leading-5 text-gray-500">
-            미리보기가 표시되지 않으면 원본 파일을 새 창에서 열어 확인해주세요.
+            PPT 미리보기는 외부 웹 뷰어가 파일을 변환해서 표시합니다. 파일 크기가 크거나 처음 여는 자료는 시간이 걸릴 수 있습니다.
           </p>
         </aside>
       </div>
@@ -141,8 +230,14 @@ export default function MaterialModal({ material, categoryName, settings, onClos
   );
 }
 
-function createOfficePreviewUrl(fileUrl: string) {
-  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+function createPreviewUrl(fileUrl: string, viewer: "office" | "google") {
+  const encodedUrl = encodeURIComponent(fileUrl);
+
+  if (viewer === "google") {
+    return `https://docs.google.com/gview?embedded=1&url=${encodedUrl}`;
+  }
+
+  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`;
 }
 
 function formatDate(value: string) {
