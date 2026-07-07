@@ -48,11 +48,6 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-md rounded-lg border bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold">관리자 로그인</h1>
-        <p className="mt-2 text-sm text-gray-600">관리자 이메일과 비밀번호로 로그인하세요.</p>
-        <p className="mt-2 rounded-md bg-gray-50 p-3 text-xs leading-5 text-gray-600">
-          관리자 이메일은 <span className="font-semibold">pastelcraft3@naver.com</span>만 사용할 수 있습니다.
-          Supabase Authentication에도 같은 이메일 계정이 생성되어 있어야 합니다.
-        </p>
         <div className="mt-6 space-y-4">
           <label className="block">
             <span className="text-sm font-semibold">이메일</span>
