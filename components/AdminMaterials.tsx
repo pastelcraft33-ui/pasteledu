@@ -1,0 +1,475 @@
+"use client";
+
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import Image from "next/image";
+import { createSafeStorageFileName, getFileExtension, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import type { Category, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
+
+type Props = {
+  categories: Category[];
+  materials: PptMaterialWithCategory[];
+  onChanged: () => Promise<void>;
+  setMessage: (message: string) => void;
+};
+
+const emptyForm: MaterialFormState = {
+  category_id: "",
+  title: "",
+  description: "",
+  tags: "",
+  thumbnail_url: "",
+  file_url: "",
+  file_name: "",
+  is_downloadable: true,
+  sort_order: 0
+};
+
+const thumbnailExtensions = ["jpg", "jpeg", "png", "webp"];
+
+export default function AdminMaterials({ categories, materials, onChanged, setMessage }: Props) {
+  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+  const [form, setForm] = useState<MaterialFormState>(emptyForm);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [downloadFilter, setDownloadFilter] = useState("all");
+
+  const filteredMaterials = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    return [...materials]
+      .filter((material) => {
+        if (categoryFilter === "uncategorized" && material.category_id) return false;
+        if (categoryFilter !== "all" && categoryFilter !== "uncategorized" && material.category_id !== categoryFilter) return false;
+        if (downloadFilter === "downloadable" && !material.is_downloadable) return false;
+        if (downloadFilter === "not_downloadable" && material.is_downloadable) return false;
+        if (!keyword) return true;
+
+        const haystack = [
+          material.title,
+          material.description ?? "",
+          ...(material.tags ?? [])
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(keyword);
+      })
+      .sort((a, b) => a.sort_order - b.sort_order || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [categoryFilter, downloadFilter, materials, search]);
+
+  function updateField<K extends keyof MaterialFormState>(key: K, value: MaterialFormState[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function openCreateForm() {
+    setForm(emptyForm);
+    setIsFormOpen(true);
+    setMessage("");
+  }
+
+  function closeForm() {
+    setForm(emptyForm);
+    setIsFormOpen(false);
+  }
+
+  async function uploadFile(event: ChangeEvent<HTMLInputElement>, bucket: "ppt-files" | "thumbnails") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateFile(file, bucket);
+    if (!validation.isValid) {
+      setMessage(validation.message);
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploading(true);
+    setMessage("파일 업로드 중...");
+    const path = createSafeStorageFileName(file.name);
+    const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false });
+    setIsUploading(false);
+
+    if (error) {
+      setMessage("파일 업로드에 실패했습니다. Storage 버킷과 권한을 확인해주세요.");
+      return;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    if (bucket === "ppt-files") {
+      setForm((current) => ({ ...current, file_url: data.publicUrl, file_name: file.name }));
+      setMessage("PPT 파일 업로드가 완료되었습니다.");
+    } else {
+      setForm((current) => ({ ...current, thumbnail_url: data.publicUrl }));
+      setMessage("썸네일 이미지 업로드가 완료되었습니다.");
+    }
+  }
+
+  function editMaterial(material: PptMaterialWithCategory) {
+    setForm({
+      id: material.id,
+      category_id: material.category_id ?? "",
+      title: material.title,
+      description: material.description ?? "",
+      tags: (material.tags ?? []).join(", "),
+      thumbnail_url: material.thumbnail_url ?? "",
+      file_url: material.file_url ?? "",
+      file_name: material.file_name ?? "",
+      is_downloadable: material.is_downloadable,
+      sort_order: material.sort_order
+    });
+    setIsFormOpen(true);
+    setMessage("선택한 자료를 수정할 수 있습니다.");
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!form.title.trim()) {
+      setMessage("필수 항목을 입력해주세요.");
+      return;
+    }
+
+    if (isUploading) {
+      setMessage("파일 업로드가 끝난 뒤 저장해주세요.");
+      return;
+    }
+
+    setIsSaving(true);
+    const payload = {
+      category_id: form.category_id || null,
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      tags: parseTagsInput(form.tags),
+      thumbnail_url: form.thumbnail_url || null,
+      file_url: form.file_url || null,
+      file_name: form.file_name || null,
+      is_downloadable: form.is_downloadable,
+      sort_order: Number(form.sort_order)
+    };
+
+    const result = form.id
+      ? await supabase.from("ppt_materials").update(payload).eq("id", form.id)
+      : await supabase.from("ppt_materials").insert(payload);
+
+    setIsSaving(false);
+
+    if (result.error) {
+      setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
+      return;
+    }
+
+    const successMessage = form.id ? "자료가 수정되었습니다." : "자료가 등록되었습니다.";
+    closeForm();
+    setMessage(successMessage);
+    await onChanged();
+  }
+
+  async function deleteMaterial(material: PptMaterialWithCategory) {
+    if (!window.confirm("정말 이 PPT 자료를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+
+    const { error } = await supabase.from("ppt_materials").delete().eq("id", material.id);
+    if (error) {
+      setMessage("삭제 중 오류가 발생했습니다.");
+      return;
+    }
+
+    const storageDeleteErrors = await removeMaterialFiles(material.thumbnail_url, material.file_url);
+    setMessage(storageDeleteErrors ? "자료가 삭제되었습니다. 일부 Storage 파일은 삭제하지 못했습니다." : "자료가 삭제되었습니다.");
+    if (form.id === material.id) closeForm();
+    await onChanged();
+  }
+
+  async function removeMaterialFiles(thumbnailUrl: string | null, fileUrl: string | null) {
+    const targets = [
+      getStorageObject("thumbnails", thumbnailUrl),
+      getStorageObject("ppt-files", fileUrl)
+    ].filter((target): target is { bucket: "ppt-files" | "thumbnails"; path: string } => Boolean(target));
+
+    if (targets.length === 0) return false;
+
+    const results = await Promise.all(targets.map((target) => supabase.storage.from(target.bucket).remove([target.path])));
+
+    return results.some((result) => Boolean(result.error));
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">PPT 자료 관리</h2>
+            <p className="mt-1 text-sm text-gray-500">자료를 검색하고, 카테고리와 다운로드 상태로 필터링할 수 있습니다.</p>
+          </div>
+          <button type="button" onClick={openCreateForm} className="rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white">
+            새 자료 추가
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_220px_180px]">
+          <label className="block">
+            <span className="text-sm font-semibold">자료 검색</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="제목, 설명, 태그 검색"
+              className="mt-1 w-full rounded-md border px-3 py-2"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold">카테고리 필터</span>
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="mt-1 w-full rounded-md border px-3 py-2">
+              <option value="all">전체</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+              <option value="uncategorized">미분류</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold">다운로드 여부</span>
+            <select value={downloadFilter} onChange={(event) => setDownloadFilter(event.target.value)} className="mt-1 w-full rounded-md border px-3 py-2">
+              <option value="all">전체</option>
+              <option value="downloadable">다운로드 가능</option>
+              <option value="not_downloadable">다운로드 불가</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {isFormOpen ? (
+        <form onSubmit={handleSubmit} className="rounded-xl border bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">{form.id ? "PPT 자료 수정" : "PPT 자료 추가"}</h2>
+              <p className="mt-1 text-sm text-gray-500">새 파일을 선택하지 않으면 기존 파일이 유지됩니다.</p>
+            </div>
+            <button type="button" onClick={closeForm} className="rounded-md border px-3 py-2 text-sm font-semibold">
+              취소
+            </button>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <Input label="제목" value={form.title} onChange={(value) => updateField("title", value)} required />
+            <label className="block">
+              <span className="text-sm font-semibold">카테고리</span>
+              <select
+                value={form.category_id}
+                onChange={(event) => updateField("category_id", event.target.value)}
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              >
+                <option value="">미분류</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Textarea label="설명" value={form.description} onChange={(value) => updateField("description", value)} />
+            <div className="space-y-3">
+              <Input label="태그" value={form.tags} onChange={(value) => updateField("tags", value)} placeholder="봄, 만들기, 초등" />
+              <p className="text-xs text-gray-500">쉼표로 구분해서 입력해주세요. 예: 봄, 만들기, 초등</p>
+              <Input
+                label="정렬 순서"
+                type="number"
+                value={String(form.sort_order)}
+                onChange={(value) => updateField("sort_order", Number(value))}
+              />
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={form.is_downloadable}
+                  onChange={(event) => updateField("is_downloadable", event.target.checked)}
+                />
+                다운로드 가능 여부
+              </label>
+            </div>
+            <FileField
+              label="썸네일 이미지"
+              accept=".jpg,.jpeg,.png,.webp"
+              onChange={(event) => uploadFile(event, "thumbnails")}
+              currentUrl={form.thumbnail_url}
+              currentLabel="현재 썸네일"
+            />
+            <FileField
+              label="PPT/PPTX 파일"
+              accept=".ppt,.pptx"
+              onChange={(event) => uploadFile(event, "ppt-files")}
+              currentUrl={form.file_url}
+              currentLabel={`현재 PPT 파일${form.file_name ? `: ${form.file_name}` : ""}`}
+            />
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={isSaving || isUploading}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {isSaving ? "저장 중..." : isUploading ? "파일 업로드 중..." : form.id ? "자료 수정" : "자료 등록"}
+            </button>
+            <button type="button" onClick={closeForm} className="rounded-md border px-4 py-2 text-sm font-semibold">
+              취소
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      <div className="rounded-xl border bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold">PPT 자료 목록</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-gray-600">
+                <th className="py-2">썸네일</th>
+                <th>제목</th>
+                <th>카테고리</th>
+                <th>태그</th>
+                <th>다운로드</th>
+                <th>정렬</th>
+                <th>등록일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMaterials.map((material) => (
+                <tr key={material.id} className="border-b align-top">
+                  <td className="py-3">
+                    {material.thumbnail_url ? (
+                      <Image src={material.thumbnail_url} alt={`${material.title} 썸네일`} width={72} height={48} className="h-12 w-[72px] rounded object-cover" />
+                    ) : (
+                      <span className="text-xs text-gray-500">없음</span>
+                    )}
+                  </td>
+                  <td className="max-w-[240px] py-3 font-semibold">{material.title}</td>
+                  <td>{material.categories?.name ?? "미분류"}</td>
+                  <td className="max-w-[220px]">{(material.tags ?? []).join(", ") || "-"}</td>
+                  <td>{material.is_downloadable ? "가능" : "불가"}</td>
+                  <td>{material.sort_order}</td>
+                  <td>{formatDate(material.created_at)}</td>
+                  <td className="space-x-2 whitespace-nowrap">
+                    <button type="button" onClick={() => editMaterial(material)} className="rounded-md border px-3 py-1">
+                      수정
+                    </button>
+                    <button type="button" onClick={() => deleteMaterial(material)} className="rounded-md border px-3 py-1 text-red-700">
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {materials.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center text-gray-500">
+                    등록된 PPT 자료가 없습니다. 새 자료를 추가해주세요.
+                  </td>
+                </tr>
+              ) : null}
+              {materials.length > 0 && filteredMaterials.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center text-gray-500">
+                    조건에 맞는 자료가 없습니다.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function validateFile(file: File, bucket: "ppt-files" | "thumbnails") {
+  const extension = getFileExtension(file.name);
+  const allowed = bucket === "ppt-files" ? isAllowedPptFile(file) : thumbnailExtensions.includes(extension);
+  const label = bucket === "ppt-files" ? "PPT 파일은 PPT 또는 PPTX 파일만 업로드할 수 있습니다." : "썸네일은 JPG, PNG, WEBP 파일만 업로드할 수 있습니다.";
+
+  return allowed ? { isValid: true, message: "" } : { isValid: false, message: label };
+}
+
+function getStorageObject(bucket: "ppt-files" | "thumbnails", publicUrl: string | null) {
+  if (!publicUrl) return null;
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const [, path] = publicUrl.split(marker);
+  if (!path) return null;
+
+  return { bucket, path: decodeURIComponent(path) };
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("ko-KR");
+}
+
+function FileField({
+  label,
+  accept,
+  onChange,
+  currentUrl,
+  currentLabel
+}: {
+  label: string;
+  accept: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  currentUrl: string;
+  currentLabel: string;
+}) {
+  return (
+    <label className="block rounded-lg border border-dashed p-4">
+      <span className="text-sm font-semibold">{label}</span>
+      <input type="file" accept={accept} onChange={onChange} className="mt-2 w-full text-sm" />
+      {currentUrl ? (
+        <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-sm font-semibold text-blue-700 underline">
+          {currentLabel || "현재 파일"} 보기
+        </a>
+      ) : (
+        <p className="mt-3 text-xs text-gray-500">아직 선택된 파일이 없습니다.</p>
+      )}
+    </label>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  placeholder
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">
+        {label}
+        {required ? <span className="ml-1 text-red-600">*</span> : null}
+      </span>
+      <input
+        type={type}
+        value={value}
+        required={required}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-md border px-3 py-2"
+      />
+    </label>
+  );
+}
+
+function Textarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-28 w-full rounded-md border px-3 py-2" />
+    </label>
+  );
+}

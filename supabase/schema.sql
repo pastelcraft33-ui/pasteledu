@@ -1,0 +1,230 @@
+create extension if not exists pgcrypto;
+
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  column_color text,
+  sort_order integer default 0,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create table if not exists public.ppt_materials (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid references public.categories(id) on delete set null,
+  title text not null,
+  description text,
+  tags text[] default '{}',
+  thumbnail_url text,
+  file_url text,
+  file_name text,
+  is_downloadable boolean default true,
+  sort_order integer default 0,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create table if not exists public.site_settings (
+  id uuid primary key default gen_random_uuid(),
+  site_name text default 'Pastel PPT Library',
+  header_title text default '파스텔크래프트 수업용 PPT 자료실',
+  header_description text default '',
+  logo_url text,
+  favicon_url text,
+  background_color text default '#ffffff',
+  header_background_color text default '#ffffff',
+  default_column_color text default '#ffffff',
+  card_background_color text default '#ffffff',
+  card_border_color text default '#e5e7eb',
+  button_color text default '#111827',
+  text_color text default '#111827',
+  font_family text default 'system-ui',
+  card_radius integer default 12,
+  use_card_shadow boolean default true,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_categories_updated_at on public.categories;
+create trigger set_categories_updated_at
+before update on public.categories
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists set_ppt_materials_updated_at on public.ppt_materials;
+create trigger set_ppt_materials_updated_at
+before update on public.ppt_materials
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists set_site_settings_updated_at on public.site_settings;
+create trigger set_site_settings_updated_at
+before update on public.site_settings
+for each row
+execute function public.set_updated_at();
+
+insert into public.categories (name, sort_order)
+select seed.name, seed.sort_order
+from (
+  values
+    ('계절 수업자료', 1),
+    ('통합교과', 2),
+    ('진로·직업 수업자료', 3),
+    ('인성교육 수업자료', 4),
+    ('사회·과학 수업자료', 5),
+    ('안전교육 수업자료', 6),
+    ('환경보호 수업자료', 7),
+    ('세계문화/다문화 수업자료', 8),
+    ('여름만들기 수업자료', 9),
+    ('명절·기념일 관련 수업자료', 10),
+    ('전통·민화 수업자료', 11),
+    ('민속놀이 수업자료', 12)
+) as seed(name, sort_order)
+where not exists (
+  select 1
+  from public.categories existing
+  where existing.name = seed.name
+);
+
+insert into public.site_settings (
+  site_name,
+  header_title,
+  header_description,
+  background_color,
+  header_background_color,
+  default_column_color,
+  card_background_color,
+  card_border_color,
+  button_color,
+  text_color,
+  font_family,
+  card_radius,
+  use_card_shadow
+)
+select
+  'Pastel PPT Library',
+  '파스텔크래프트 수업용 PPT 자료실',
+  '필요한 수업자료를 카테고리별로 확인하고 다운로드할 수 있습니다.',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#e5e7eb',
+  '#111827',
+  '#111827',
+  'system-ui',
+  12,
+  true
+where not exists (select 1 from public.site_settings);
+
+alter table public.categories enable row level security;
+alter table public.ppt_materials enable row level security;
+alter table public.site_settings enable row level security;
+
+drop policy if exists "Public can read categories" on public.categories;
+create policy "Public can read categories"
+on public.categories for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Authenticated can manage categories" on public.categories;
+create policy "Authenticated can manage categories"
+on public.categories for all
+to authenticated
+using (auth.role() = 'authenticated')
+with check (auth.role() = 'authenticated');
+
+drop policy if exists "Public can read ppt materials" on public.ppt_materials;
+create policy "Public can read ppt materials"
+on public.ppt_materials for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Authenticated can manage ppt materials" on public.ppt_materials;
+create policy "Authenticated can manage ppt materials"
+on public.ppt_materials for all
+to authenticated
+using (auth.role() = 'authenticated')
+with check (auth.role() = 'authenticated');
+
+drop policy if exists "Public can read site settings" on public.site_settings;
+create policy "Public can read site settings"
+on public.site_settings for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Authenticated can manage site settings" on public.site_settings;
+create policy "Authenticated can manage site settings"
+on public.site_settings for all
+to authenticated
+using (auth.role() = 'authenticated')
+with check (auth.role() = 'authenticated');
+
+-- Storage 버킷은 Dashboard에서 직접 만들어도 됩니다.
+-- SQL로 실행할 경우 아래 구문이 ppt-files, thumbnails, site-assets 버킷을 public으로 생성 또는 갱신합니다.
+insert into storage.buckets (id, name, public)
+values
+  ('ppt-files', 'ppt-files', true),
+  ('thumbnails', 'thumbnails', true),
+  ('site-assets', 'site-assets', true)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "Public can read ppt files" on storage.objects;
+create policy "Public can read ppt files"
+on storage.objects for select
+to anon, authenticated
+using (bucket_id = 'ppt-files');
+
+drop policy if exists "Public can read thumbnails" on storage.objects;
+create policy "Public can read thumbnails"
+on storage.objects for select
+to anon, authenticated
+using (bucket_id = 'thumbnails');
+
+drop policy if exists "Public can read site assets" on storage.objects;
+create policy "Public can read site assets"
+on storage.objects for select
+to anon, authenticated
+using (bucket_id = 'site-assets');
+
+drop policy if exists "Authenticated can upload ppt files" on storage.objects;
+create policy "Authenticated can upload ppt files"
+on storage.objects for insert
+to authenticated
+with check (bucket_id = 'ppt-files' and auth.role() = 'authenticated');
+
+drop policy if exists "Authenticated can upload thumbnails" on storage.objects;
+create policy "Authenticated can upload thumbnails"
+on storage.objects for insert
+to authenticated
+with check (bucket_id = 'thumbnails' and auth.role() = 'authenticated');
+
+drop policy if exists "Authenticated can upload site assets" on storage.objects;
+create policy "Authenticated can upload site assets"
+on storage.objects for insert
+to authenticated
+with check (bucket_id = 'site-assets' and auth.role() = 'authenticated');
+
+drop policy if exists "Authenticated can update storage objects" on storage.objects;
+create policy "Authenticated can update storage objects"
+on storage.objects for update
+to authenticated
+using (bucket_id in ('ppt-files', 'thumbnails', 'site-assets') and auth.role() = 'authenticated')
+with check (bucket_id in ('ppt-files', 'thumbnails', 'site-assets') and auth.role() = 'authenticated');
+
+drop policy if exists "Authenticated can delete storage objects" on storage.objects;
+create policy "Authenticated can delete storage objects"
+on storage.objects for delete
+to authenticated
+using (bucket_id in ('ppt-files', 'thumbnails', 'site-assets') and auth.role() = 'authenticated');
