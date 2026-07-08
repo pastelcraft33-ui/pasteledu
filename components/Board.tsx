@@ -138,10 +138,10 @@ export default function Board({ settings, categories, materials, hasDataError = 
       }}
     >
       <section
-        className="border-b px-5 py-6 sm:px-8"
+        className="border-b px-5 py-3 sm:px-8 sm:py-4"
         style={{ backgroundColor: viewSettings.header_background_color, borderColor: viewSettings.card_border_color }}
       >
-        <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3">
           <BoardHeader settings={viewSettings} isLoggedIn={isLoggedIn} />
           <SearchBar
             value={query}
@@ -153,7 +153,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
         </div>
       </section>
 
-      <section className="overflow-x-auto px-5 py-6 sm:px-8">
+      <section className="px-5 py-6 sm:px-8">
         {clientDataError ? (
           <EmptyState
             title="자료실 데이터를 불러오지 못했습니다."
@@ -188,7 +188,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
         ) : null}
 
         {shouldShowBoard ? (
-          <div className="flex min-h-[620px] w-max gap-4 pb-4">
+          <div className="mx-auto grid min-h-[620px] max-w-7xl items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {clientCategories.map((category) => (
               <CategoryColumn
                 key={category.id}
