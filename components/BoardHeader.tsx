@@ -13,34 +13,23 @@ type Props = {
 
 export default function BoardHeader({ settings, isLoggedIn }: Props) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-5">
+    <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+      <div className="flex h-[76px] w-full min-w-0 items-start justify-center overflow-hidden sm:h-[96px] lg:h-[132px] lg:w-auto lg:justify-start">
         <Image
-          src="/pastel-edu-logo.jpeg"
+          src="/pastel-main-logo-original.png"
           alt="파스텔에듀 로고"
-          width={360}
-          height={116}
+          width={800}
+          height={500}
           priority
-          className="h-auto w-[180px] max-w-[46vw] object-contain sm:w-[260px] lg:w-[300px]"
-        />
-        <span className="translate-y-[-1px] text-4xl font-black leading-none text-gray-900 sm:text-5xl" aria-hidden="true">
-          ×
-        </span>
-        <Image
-          src="/pastel-clay-logo.png"
-          alt="파스텔클레이 로고"
-          width={821}
-          height={194}
-          priority
-          className="h-auto w-[160px] max-w-[42vw] object-contain sm:w-[230px] lg:w-[270px]"
+          className="h-auto w-[310px] max-w-full shrink-0 -translate-y-[55px] object-contain sm:w-[460px] sm:-translate-y-[84px] lg:w-[640px] lg:-translate-y-[116px]"
         />
       </div>
-      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center sm:justify-center sm:gap-3 lg:w-auto lg:justify-end">
         <Link
           href="https://www.pastelclay.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-[#f7a8bd] px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#f28ca8] sm:px-5 sm:text-base"
+          className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-[#e97599] px-3 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#dc5f86] sm:px-5 sm:text-base"
         >
           파스텔클레이
         </Link>
