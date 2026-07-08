@@ -14,17 +14,17 @@ type Props = {
 export default function BoardHeader({ settings, isLoggedIn }: Props) {
   return (
     <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-      <div className="flex h-[76px] w-full min-w-0 items-start justify-center overflow-hidden sm:h-[96px] lg:h-[132px] lg:w-auto lg:justify-start">
+      <div className="flex h-[76px] w-full min-w-0 items-start justify-start overflow-hidden sm:h-[96px] lg:h-[132px] lg:w-auto">
         <Image
           src="/pastel-main-logo-original.png"
           alt="파스텔에듀 로고"
           width={800}
           height={500}
           priority
-          className="h-auto w-[310px] max-w-full shrink-0 -translate-y-[55px] object-contain sm:w-[460px] sm:-translate-y-[84px] lg:w-[640px] lg:-translate-y-[116px]"
+          className="h-auto w-[310px] max-w-full shrink-0 -translate-x-[31px] -translate-y-[55px] object-contain sm:w-[460px] sm:-translate-x-[46px] sm:-translate-y-[84px] lg:w-[640px] lg:-translate-x-[64px] lg:-translate-y-[116px]"
         />
       </div>
-      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center sm:justify-center sm:gap-3 lg:w-auto lg:justify-end">
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center sm:justify-end sm:gap-3 lg:w-auto">
         <Link
           href="https://www.pastelclay.com/"
           target="_blank"
