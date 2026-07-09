@@ -76,6 +76,11 @@ Supabase 환경변수가 설정되지 않았습니다. .env.local 또는 Vercel 
 - Storage public read 정책
 - Storage authenticated upload/update/delete 정책
 
+업데이트 참고:
+- `categories.category_groups`는 카테고리를 `주제별`, `월별` 중 어디에 보여줄지 저장합니다. 두 값을 동시에 선택할 수 있습니다.
+- `ppt_materials.secondary_category_id`는 PPT 자료를 두 번째 카테고리에도 표시하기 위해 사용합니다.
+- 기존 Supabase 프로젝트에 배포 후에는 최신 `supabase/schema.sql`을 SQL Editor에서 다시 실행해야 새 컬럼이 추가됩니다.
+
 ## Storage 버킷 확인 방법
 
 Supabase Dashboard에서 아래 순서로 확인합니다.
@@ -128,17 +133,19 @@ npm run build
 1. Supabase Dashboard에 접속합니다.
 2. SQL Editor에서 `supabase/schema.sql`을 실행했는지 확인합니다.
 3. Table Editor에서 `categories` 테이블에 데이터가 있는지 확인합니다.
-4. `site_settings` 테이블에 1개 행이 있는지 확인합니다.
-5. `.env.local`에 아래 값이 들어있는지 확인합니다.
+4. `categories` 테이블에 `category_groups` 컬럼이 있는지 확인합니다.
+5. `ppt_materials` 테이블에 `secondary_category_id` 컬럼이 있는지 확인합니다.
+6. `site_settings` 테이블에 1개 행이 있는지 확인합니다.
+7. `.env.local`에 아래 값이 들어있는지 확인합니다.
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://nwkxpcqjtmhsuakgupjn.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_wstJyrjPLsQvcoe5vcoudw_0nmit6DZ
 ```
 
-6. RLS 정책이 실행되었는지 확인합니다.
-7. 브라우저를 새로고침합니다.
-8. 로컬 서버를 재시작합니다.
+8. RLS 정책이 실행되었는지 확인합니다.
+9. 브라우저를 새로고침합니다.
+10. 로컬 서버를 재시작합니다.
 
 ```bash
 npm run dev

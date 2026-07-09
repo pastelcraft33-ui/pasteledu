@@ -40,8 +40,8 @@ export default function AdminThumbnails({ categories, materials, onChanged, setM
     const keyword = search.trim().toLowerCase();
 
     return materials.filter((material) => {
-      if (categoryFilter === uncategorizedValue && material.category_id) return false;
-      if (categoryFilter !== "all" && categoryFilter !== uncategorizedValue && material.category_id !== categoryFilter) return false;
+      if (categoryFilter === uncategorizedValue && (material.category_id || material.secondary_category_id)) return false;
+      if (categoryFilter !== "all" && categoryFilter !== uncategorizedValue && !isMaterialInCategory(material, categoryFilter)) return false;
       if (thumbnailFilter === "has_thumbnail" && !material.thumbnail_url) return false;
       if (thumbnailFilter === "no_thumbnail" && material.thumbnail_url) return false;
       if (downloadFilter === "downloadable" && !material.is_downloadable) return false;
@@ -198,7 +198,7 @@ export default function AdminThumbnails({ categories, materials, onChanged, setM
                 <div className="space-y-3 p-4">
                   <div>
                     <h3 className="line-clamp-2 font-bold">{material.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500">{material.categories?.name ?? "미분류"}</p>
+                    <p className="mt-1 text-sm text-gray-500">{formatMaterialCategories(material, categories)}</p>
                   </div>
                   <dl className="space-y-1 text-sm text-gray-600">
                     <div className="flex gap-2">
@@ -246,6 +246,19 @@ export default function AdminThumbnails({ categories, materials, onChanged, setM
       )}
     </div>
   );
+}
+
+function isMaterialInCategory(material: PptMaterialWithCategory, categoryId: string) {
+  return material.category_id === categoryId || material.secondary_category_id === categoryId;
+}
+
+function formatMaterialCategories(material: PptMaterialWithCategory, categories: Category[]) {
+  const names = [material.category_id, material.secondary_category_id]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => categories.find((category) => category.id === id)?.name)
+    .filter(Boolean);
+
+  return names.length > 0 ? names.join(", ") : "미분류";
 }
 
 function getStatusLabel(status: ItemStatus) {

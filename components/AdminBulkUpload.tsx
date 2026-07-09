@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { createSafeStorageFileName, getTitleFromFileName, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { BulkUploadFileItem, Category, PptMaterialWithCategory } from "@/lib/types";
+import type { BulkUploadFileItem, Category, CategoryGroup, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
   categories: Category[];
@@ -22,13 +22,16 @@ type UploadResult = {
 export default function AdminBulkUpload({ categories, materials, onChanged, setMessage, onMoveToMaterials }: Props) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [items, setItems] = useState<BulkUploadFileItem[]>([]);
-  const [categoryId, setCategoryId] = useState("");
+  const [subjectCategoryId, setSubjectCategoryId] = useState("");
+  const [monthCategoryId, setMonthCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [isDownloadable, setIsDownloadable] = useState(true);
   const [startSortOrder, setStartSortOrder] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
+  const subjectCategories = useMemo(() => getCategoriesByGroup(categories, "subject", subjectCategoryId), [categories, subjectCategoryId]);
+  const monthCategories = useMemo(() => getCategoriesByGroup(categories, "month", monthCategoryId), [categories, monthCategoryId]);
 
   const completedCount = items.filter((item) => item.status === "success").length;
   const hasInvalidFiles = items.some((item) => item.status === "failed");
@@ -98,8 +101,10 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
         }
 
         const { data } = supabase.storage.from("ppt-files").getPublicUrl(path);
+        const normalizedMonthCategoryId = monthCategoryId && monthCategoryId !== subjectCategoryId ? monthCategoryId : null;
         const insertResult = await supabase.from("ppt_materials").insert({
-          category_id: categoryId || null,
+          category_id: subjectCategoryId || null,
+          secondary_category_id: normalizedMonthCategoryId,
           title: item.expectedTitle,
           description: description.trim() || null,
           tags: parsedTags,
@@ -155,9 +160,9 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
         <p className="mt-3 text-sm leading-6 text-gray-600">
           여러 개의 PPT/PPTX 파일을 한 번에 업로드할 수 있습니다.
           <br />
-          업로드된 자료는 선택한 기본 카테고리와 기본 태그로 등록됩니다.
+          업로드된 자료는 선택한 기본 주제별 카테고리, 기본 월별 카테고리와 기본 태그로 등록됩니다.
           <br />
-          등록 후 “PPT 자료 관리” 탭에서 제목, 설명, 카테고리, 태그, 썸네일을 수정할 수 있습니다.
+          등록 후 “PPT 자료 관리” 탭에서 제목, 설명, 주제별/월별 카테고리, 태그, 썸네일을 수정할 수 있습니다.
         </p>
       </section>
 
@@ -169,15 +174,29 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
           </label>
 
           <label className="block">
-            <span className="text-sm font-semibold">기본 카테고리</span>
-            <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} className="mt-1 w-full rounded-md border px-3 py-2">
-              <option value="">미분류</option>
-              {categories.map((category) => (
+            <span className="text-sm font-semibold">기본 주제별 카테고리</span>
+            <select value={subjectCategoryId} onChange={(event) => setSubjectCategoryId(event.target.value)} className="mt-1 w-full rounded-md border px-3 py-2">
+              <option value="">선택 안 함</option>
+              {subjectCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-gray-500">카테고리 관리에서 “주제별”로 체크된 카테고리만 표시됩니다.</p>
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-semibold">기본 월별 카테고리</span>
+            <select value={monthCategoryId} onChange={(event) => setMonthCategoryId(event.target.value)} className="mt-1 w-full rounded-md border px-3 py-2">
+              <option value="">선택 안 함</option>
+              {monthCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">카테고리 관리에서 “월별”로 체크된 카테고리만 표시됩니다.</p>
           </label>
 
           <label className="block">
@@ -297,7 +316,7 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
             </div>
           ) : null}
           <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-            업로드된 자료는 썸네일 없이 등록되었습니다. 썸네일, 설명, 태그, 카테고리 수정이 필요하면 “PPT 자료 관리” 탭에서 수정해주세요.
+            업로드된 자료는 썸네일 없이 등록되었습니다. 썸네일, 설명, 태그, 주제별/월별 카테고리 수정이 필요하면 “PPT 자료 관리” 탭에서 수정해주세요.
           </p>
           <button type="button" onClick={onMoveToMaterials} className="mt-4 rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white">
             PPT 자료 관리로 이동
@@ -312,6 +331,18 @@ function createItemId(file: File) {
   const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
   return `${file.name}-${file.size}-${id}`;
+}
+
+function getCategoriesByGroup(categories: Category[], group: CategoryGroup, selectedId: string) {
+  const groupedCategories = categories.filter((category) => getCategoryGroups(category).includes(group));
+  if (!selectedId || groupedCategories.some((category) => category.id === selectedId)) return groupedCategories;
+
+  const selectedCategory = categories.find((category) => category.id === selectedId);
+  return selectedCategory ? [...groupedCategories, selectedCategory] : groupedCategories;
+}
+
+function getCategoryGroups(category: Category): CategoryGroup[] {
+  return category.category_groups?.length ? category.category_groups : ["subject"];
 }
 
 function formatFileSize(size: number) {

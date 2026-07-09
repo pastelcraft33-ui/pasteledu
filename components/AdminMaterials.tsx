@@ -4,7 +4,7 @@ import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import Image from "next/image";
 import { createSafeStorageFileName, getFileExtension, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Category, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
+import type { Category, CategoryGroup, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
   categories: Category[];
@@ -15,6 +15,7 @@ type Props = {
 
 const emptyForm: MaterialFormState = {
   category_id: "",
+  secondary_category_id: "",
   title: "",
   description: "",
   tags: "",
@@ -36,14 +37,16 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [downloadFilter, setDownloadFilter] = useState("all");
+  const subjectCategories = useMemo(() => getCategoriesByGroup(categories, "subject", form.category_id), [categories, form.category_id]);
+  const monthCategories = useMemo(() => getCategoriesByGroup(categories, "month", form.secondary_category_id), [categories, form.secondary_category_id]);
 
   const filteredMaterials = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
     return [...materials]
       .filter((material) => {
-        if (categoryFilter === "uncategorized" && material.category_id) return false;
-        if (categoryFilter !== "all" && categoryFilter !== "uncategorized" && material.category_id !== categoryFilter) return false;
+        if (categoryFilter === "uncategorized" && (material.category_id || material.secondary_category_id)) return false;
+        if (categoryFilter !== "all" && categoryFilter !== "uncategorized" && !isMaterialInCategory(material, categoryFilter)) return false;
         if (downloadFilter === "downloadable" && !material.is_downloadable) return false;
         if (downloadFilter === "not_downloadable" && material.is_downloadable) return false;
         if (!keyword) return true;
@@ -112,6 +115,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setForm({
       id: material.id,
       category_id: material.category_id ?? "",
+      secondary_category_id: material.secondary_category_id ?? "",
       title: material.title,
       description: material.description ?? "",
       tags: (material.tags ?? []).join(", "),
@@ -139,8 +143,10 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     }
 
     setIsSaving(true);
+    const monthCategoryId = form.secondary_category_id && form.secondary_category_id !== form.category_id ? form.secondary_category_id : null;
     const payload = {
       category_id: form.category_id || null,
+      secondary_category_id: monthCategoryId,
       title: form.title.trim(),
       description: form.description.trim() || null,
       tags: parseTagsInput(form.tags),
@@ -256,19 +262,36 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <Input label="제목" value={form.title} onChange={(value) => updateField("title", value)} required />
             <label className="block">
-              <span className="text-sm font-semibold">카테고리</span>
+              <span className="text-sm font-semibold">주제별 카테고리</span>
               <select
                 value={form.category_id}
                 onChange={(event) => updateField("category_id", event.target.value)}
                 className="mt-1 w-full rounded-md border px-3 py-2"
               >
-                <option value="">미분류</option>
-                {categories.map((category) => (
+                <option value="">선택 안 함</option>
+                {subjectCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-gray-500">카테고리 관리에서 “주제별”로 체크된 카테고리만 표시됩니다.</p>
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold">월별 카테고리</span>
+              <select
+                value={form.secondary_category_id}
+                onChange={(event) => updateField("secondary_category_id", event.target.value)}
+                className="mt-1 w-full rounded-md border px-3 py-2"
+              >
+                <option value="">선택 안 함</option>
+                {monthCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">카테고리 관리에서 “월별”로 체크된 카테고리만 표시됩니다.</p>
             </label>
             <Textarea label="설명" value={form.description} onChange={(value) => updateField("description", value)} />
             <div className="space-y-3">
@@ -346,7 +369,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                     )}
                   </td>
                   <td className="max-w-[240px] py-3 font-semibold">{material.title}</td>
-                  <td>{material.categories?.name ?? "미분류"}</td>
+                  <td>{formatMaterialCategories(material, categories)}</td>
                   <td className="max-w-[220px]">{(material.tags ?? []).join(", ") || "-"}</td>
                   <td>{material.is_downloadable ? "가능" : "불가"}</td>
                   <td>{material.sort_order}</td>
@@ -381,6 +404,33 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       </div>
     </div>
   );
+}
+
+function isMaterialInCategory(material: PptMaterialWithCategory, categoryId: string) {
+  return material.category_id === categoryId || material.secondary_category_id === categoryId;
+}
+
+function formatMaterialCategories(material: PptMaterialWithCategory, categories: Category[]) {
+  const subjectName = material.category_id ? categories.find((category) => category.id === material.category_id)?.name : null;
+  const monthName = material.secondary_category_id ? categories.find((category) => category.id === material.secondary_category_id)?.name : null;
+  const names = [
+    subjectName ? `주제별: ${subjectName}` : null,
+    monthName ? `월별: ${monthName}` : null
+  ].filter(Boolean);
+
+  return names.length > 0 ? names.join(", ") : "미분류";
+}
+
+function getCategoriesByGroup(categories: Category[], group: CategoryGroup, selectedId: string) {
+  const groupedCategories = categories.filter((category) => getCategoryGroups(category).includes(group));
+  if (!selectedId || groupedCategories.some((category) => category.id === selectedId)) return groupedCategories;
+
+  const selectedCategory = categories.find((category) => category.id === selectedId);
+  return selectedCategory ? [...groupedCategories, selectedCategory] : groupedCategories;
+}
+
+function getCategoryGroups(category: Category): CategoryGroup[] {
+  return category.category_groups?.length ? category.category_groups : ["subject"];
 }
 
 function validateFile(file: File, bucket: "ppt-files" | "thumbnails") {

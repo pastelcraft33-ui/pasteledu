@@ -7,7 +7,7 @@ import EmptyState from "@/components/EmptyState";
 import MaterialModal from "@/components/MaterialModal";
 import SearchBar from "@/components/SearchBar";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Category, PptMaterial, SiteSettings } from "@/lib/types";
+import type { Category, CategoryGroup, PptMaterial, SiteSettings } from "@/lib/types";
 
 type Props = {
   settings: SiteSettings | null;
@@ -36,7 +36,9 @@ const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> =
 
 export default function Board({ settings, categories, materials, hasDataError = false }: Props) {
   const [query, setQuery] = useState("");
+  const [activeCategoryGroup, setActiveCategoryGroup] = useState<CategoryGroup>("subject");
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
+  const [urlMaterialId, setUrlMaterialId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [clientSettings, setClientSettings] = useState<SiteSettings | null>(settings);
   const [clientCategories, setClientCategories] = useState<Category[]>(categories);
@@ -103,6 +105,40 @@ export default function Board({ settings, categories, materials, hasDataError = 
     return () => subscription.unsubscribe();
   }, [hasInitialServerData]);
 
+  useEffect(() => {
+    function syncMaterialIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      setUrlMaterialId(params.get("ppt"));
+    }
+
+    syncMaterialIdFromUrl();
+    window.addEventListener("popstate", syncMaterialIdFromUrl);
+
+    return () => window.removeEventListener("popstate", syncMaterialIdFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!urlMaterialId) {
+      setSelectedMaterial(null);
+      return;
+    }
+
+    const materialFromUrl = clientMaterials.find((material) => material.id === urlMaterialId);
+    if (materialFromUrl) setSelectedMaterial(materialFromUrl);
+  }, [clientMaterials, urlMaterialId]);
+
+  function openMaterial(material: PptMaterial) {
+    setSelectedMaterial(material);
+    setUrlMaterialId(material.id);
+    updateMaterialUrl(material.id);
+  }
+
+  function closeMaterial() {
+    setSelectedMaterial(null);
+    setUrlMaterialId(null);
+    updateMaterialUrl(null);
+  }
+
   const filteredMaterials = useMemo(() => {
     if (!normalizedQuery) return clientMaterials;
 
@@ -119,14 +155,16 @@ export default function Board({ settings, categories, materials, hasDataError = 
     });
   }, [clientMaterials, normalizedQuery]);
 
-  const selectedCategory = selectedMaterial
-    ? clientCategories.find((category) => category.id === selectedMaterial.category_id) ?? null
-    : null;
-  const uncategorizedMaterials = filteredMaterials.filter((material) => !material.category_id);
+  const visibleCategories = useMemo(() => {
+    return clientCategories.filter((category) => getCategoryGroups(category).includes(activeCategoryGroup));
+  }, [activeCategoryGroup, clientCategories]);
+
+  const selectedCategoryName = selectedMaterial ? getMaterialCategoryNames(selectedMaterial, clientCategories) : "미분류";
+  const uncategorizedMaterials = filteredMaterials.filter((material) => !material.category_id && !material.secondary_category_id);
   const hasSearchResults = filteredMaterials.length > 0;
   const shouldShowUncategorized = uncategorizedMaterials.length > 0;
-  const shouldShowCategoryEmpty = clientCategories.length === 0 && !normalizedQuery && !shouldShowUncategorized && !isClientLoading;
-  const shouldShowBoard = (clientCategories.length > 0 || shouldShowUncategorized) && (hasSearchResults || !normalizedQuery);
+  const shouldShowCategoryEmpty = visibleCategories.length === 0 && !normalizedQuery && !shouldShowUncategorized && !isClientLoading;
+  const shouldShowBoard = (visibleCategories.length > 0 || shouldShowUncategorized) && (hasSearchResults || !normalizedQuery);
 
   return (
     <main
@@ -150,6 +188,23 @@ export default function Board({ settings, categories, materials, hasDataError = 
             showResultCount={Boolean(normalizedQuery)}
             borderColor={viewSettings.card_border_color}
           />
+          <div className="flex flex-wrap gap-2" aria-label="카테고리 보기 선택">
+            {categoryGroupTabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveCategoryGroup(item.id)}
+                className="rounded-md border px-4 py-2 text-sm font-extrabold transition sm:text-base"
+                style={{
+                  backgroundColor: activeCategoryGroup === item.id ? viewSettings.button_color : viewSettings.card_background_color,
+                  borderColor: viewSettings.card_border_color,
+                  color: activeCategoryGroup === item.id ? "#ffffff" : viewSettings.text_color
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -189,13 +244,13 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
         {shouldShowBoard ? (
           <div className="mx-auto grid min-h-[620px] max-w-7xl items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {clientCategories.map((category) => (
+            {visibleCategories.map((category) => (
               <CategoryColumn
                 key={category.id}
                 category={category}
-                materials={filteredMaterials.filter((material) => material.category_id === category.id)}
+                materials={filteredMaterials.filter((material) => isMaterialInCategory(material, category.id))}
                 settings={viewSettings}
-                onSelectMaterial={setSelectedMaterial}
+                onSelectMaterial={openMaterial}
               />
             ))}
             {shouldShowUncategorized ? (
@@ -203,7 +258,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 category={null}
                 materials={uncategorizedMaterials}
                 settings={viewSettings}
-                onSelectMaterial={setSelectedMaterial}
+                onSelectMaterial={openMaterial}
               />
             ) : null}
           </div>
@@ -213,11 +268,45 @@ export default function Board({ settings, categories, materials, hasDataError = 
       {selectedMaterial ? (
         <MaterialModal
           material={selectedMaterial}
-          categoryName={selectedCategory?.name ?? "미분류"}
+          categoryName={selectedCategoryName}
           settings={viewSettings}
-          onClose={() => setSelectedMaterial(null)}
+          onClose={closeMaterial}
         />
       ) : null}
     </main>
   );
+}
+
+const categoryGroupTabs: Array<{ id: CategoryGroup; label: string }> = [
+  { id: "subject", label: "주제별" },
+  { id: "month", label: "월별" }
+];
+
+function getCategoryGroups(category: Category) {
+  return category.category_groups?.length ? category.category_groups : (["subject"] as CategoryGroup[]);
+}
+
+function isMaterialInCategory(material: PptMaterial, categoryId: string) {
+  return material.category_id === categoryId || material.secondary_category_id === categoryId;
+}
+
+function getMaterialCategoryNames(material: PptMaterial, categories: Category[]) {
+  const names = [material.category_id, material.secondary_category_id]
+    .filter((id): id is string => Boolean(id))
+    .map((id) => categories.find((category) => category.id === id)?.name)
+    .filter(Boolean);
+
+  return names.length > 0 ? names.join(", ") : "미분류";
+}
+
+function updateMaterialUrl(materialId: string | null) {
+  const url = new URL(window.location.href);
+  if (materialId) {
+    url.searchParams.set("ppt", materialId);
+  } else {
+    url.searchParams.delete("ppt");
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  window.history.pushState({}, "", nextUrl);
 }

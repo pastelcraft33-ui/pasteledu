@@ -3,14 +3,18 @@ export type Category = {
   name: string;
   description: string | null;
   column_color: string | null;
+  category_groups: CategoryGroup[];
   sort_order: number;
   created_at: string;
   updated_at: string;
 };
 
+export type CategoryGroup = "subject" | "month";
+
 export type PptMaterial = {
   id: string;
   category_id: string | null;
+  secondary_category_id: string | null;
   title: string;
   description: string | null;
   tags: string[];
@@ -53,6 +57,7 @@ export type MaterialWithCategory = PptMaterialWithCategory;
 export type MaterialFormState = {
   id?: string;
   category_id: string;
+  secondary_category_id: string;
   title: string;
   description: string;
   tags: string;
@@ -68,6 +73,7 @@ export type CategoryFormState = {
   name: string;
   description: string;
   column_color: string;
+  category_groups: CategoryGroup[];
   sort_order: number;
 };
 

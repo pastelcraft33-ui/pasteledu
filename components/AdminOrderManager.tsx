@@ -27,8 +27,10 @@ export default function AdminOrderManager({ categories, materials, onChanged, se
 
   const materialCounts = useMemo(() => {
     return materials.reduce<Record<string, number>>((acc, material) => {
-      if (!material.category_id) return acc;
-      acc[material.category_id] = (acc[material.category_id] ?? 0) + 1;
+      const categoryIds = [material.category_id, material.secondary_category_id].filter((id): id is string => Boolean(id));
+      categoryIds.forEach((id) => {
+        acc[id] = (acc[id] ?? 0) + 1;
+      });
       return acc;
     }, {});
   }, [materials]);
@@ -280,8 +282,8 @@ function sortCategories(categories: Category[]) {
 function getMaterialsByCategory(materials: PptMaterialWithCategory[], selectedCategoryId: string) {
   return [...materials]
     .filter((material) => {
-      if (selectedCategoryId === uncategorizedValue) return !material.category_id;
-      return material.category_id === selectedCategoryId;
+      if (selectedCategoryId === uncategorizedValue) return !material.category_id && !material.secondary_category_id;
+      return material.category_id === selectedCategoryId || material.secondary_category_id === selectedCategoryId;
     })
     .sort((a, b) => a.sort_order - b.sort_order || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 }

@@ -44,7 +44,7 @@ export default function AdminPage() {
       { label: "전체 자료", value: `${materials.length}개` },
       { label: "카테고리", value: `${categories.length}개` },
       { label: "다운로드 가능", value: `${materials.filter((material) => material.is_downloadable).length}개` },
-      { label: "미분류", value: `${materials.filter((material) => !material.category_id).length}개` }
+      { label: "미분류", value: `${materials.filter((material) => !material.category_id && !material.secondary_category_id).length}개` }
     ],
     [categories.length, materials]
   );
@@ -64,7 +64,7 @@ export default function AdminPage() {
           supabase.from("categories").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
           supabase
             .from("ppt_materials")
-            .select("*, categories(id, name)")
+            .select("*")
             .order("sort_order", { ascending: true })
             .order("created_at", { ascending: false }),
           supabase.from("site_settings").select("*").order("created_at", { ascending: true }).limit(1).maybeSingle()

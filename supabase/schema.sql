@@ -5,6 +5,7 @@ create table if not exists public.categories (
   name text not null,
   description text,
   column_color text,
+  category_groups text[] not null default array['subject'],
   sort_order integer default 0,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
@@ -13,6 +14,7 @@ create table if not exists public.categories (
 create table if not exists public.ppt_materials (
   id uuid primary key default gen_random_uuid(),
   category_id uuid references public.categories(id) on delete set null,
+  secondary_category_id uuid references public.categories(id) on delete set null,
   title text not null,
   description text,
   tags text[] default '{}',
@@ -24,6 +26,16 @@ create table if not exists public.ppt_materials (
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
+
+alter table public.categories
+add column if not exists category_groups text[] not null default array['subject'];
+
+alter table public.ppt_materials
+add column if not exists secondary_category_id uuid references public.categories(id) on delete set null;
+
+update public.categories
+set category_groups = array['subject']
+where category_groups is null or array_length(category_groups, 1) is null;
 
 create table if not exists public.site_settings (
   id uuid primary key default gen_random_uuid(),
