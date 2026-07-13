@@ -91,7 +91,9 @@ export default function Board({ settings, categories, materials, hasDataError = 
       setIsClientLoading(false);
     }
 
-    loadClientData();
+    if (!hasInitialServerData || hasDataError) {
+      loadClientData();
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       setIsLoggedIn(Boolean(data.session));
@@ -104,7 +106,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
     });
 
     return () => subscription.unsubscribe();
-  }, [hasInitialServerData, supabase]);
+  }, [hasDataError, hasInitialServerData, supabase]);
 
   useEffect(() => {
     if (!selectedMaterial) return;
@@ -206,14 +208,18 @@ export default function Board({ settings, categories, materials, hasDataError = 
         style={{ backgroundColor: viewSettings.header_background_color, borderColor: viewSettings.card_border_color }}
       >
         <div className="mx-auto flex max-w-7xl flex-col gap-1.5 sm:gap-2">
-          <BoardHeader settings={viewSettings} isLoggedIn={isLoggedIn} />
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            resultCount={filteredMaterials.length}
-            showResultCount={Boolean(normalizedQuery)}
-            borderColor={viewSettings.card_border_color}
-          />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+            <BoardHeader />
+            <div className="w-full lg:max-w-2xl">
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                resultCount={filteredMaterials.length}
+                showResultCount={Boolean(normalizedQuery)}
+                borderColor={viewSettings.card_border_color}
+              />
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2" aria-label="카테고리 보기 선택">
             {categoryGroupTabs.map((item) => (
               <button

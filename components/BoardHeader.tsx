@@ -1,42 +1,25 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import type { SiteSettings } from "@/lib/types";
 
-type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
-
-type Props = {
-  settings: BoardSettings;
-  isLoggedIn: boolean;
-};
-
-export default function BoardHeader({ settings, isLoggedIn }: Props) {
+export default function BoardHeader() {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div
-        className="min-w-0 text-3xl font-black leading-none sm:text-4xl lg:text-5xl"
-        style={{ color: settings.text_color, fontFamily: settings.font_family }}
-        aria-label="PASTEL - EDU"
+    <div className="flex items-center">
+      <Link
+        href="/login"
+        className="inline-flex min-w-0 items-center focus-visible:rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gray-900"
+        aria-label="관리자 로그인"
       >
-        PASTEL - EDU
-      </div>
-      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center sm:justify-end sm:gap-3 lg:w-auto">
-        <Link
-          href="https://www.pastelclay.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-[#e97599] px-3 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#dc5f86] sm:px-5 sm:text-base"
-        >
-          파스텔클레이
-        </Link>
-        <Link
-          href={isLoggedIn ? "/admin" : "/login"}
-          className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2.5 text-sm font-bold text-white shadow-sm sm:px-5 sm:text-base"
-          style={{ backgroundColor: settings.button_color }}
-        >
-          {isLoggedIn ? "관리자" : "로그인"}
-        </Link>
-      </div>
+        <Image
+          src="/pastel-edu-color-logo.png"
+          alt="파스텔에듀"
+          width={1632}
+          height={403}
+          priority
+          className="h-auto w-[270px] max-w-full object-contain sm:w-[360px] lg:w-[430px]"
+        />
+      </Link>
     </div>
   );
 }

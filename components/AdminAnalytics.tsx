@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { PptMaterialEvent, PptMaterialWithCategory } from "@/lib/types";
 
@@ -22,18 +22,18 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
   const [events, setEvents] = useState<PptMaterialEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadEvents = useCallback(async () => {
+    setIsLoading(true);
+    const pageSize = 1000;
+    const allEvents: PptMaterialEvent[] = [];
+    let from = 0;
 
-    async function loadEvents() {
-      setIsLoading(true);
+    while (true) {
       const { data, error } = await supabase
         .from("ppt_material_events")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(5000);
-
-      if (!isMounted) return;
+        .range(from, from + pageSize - 1);
 
       if (error) {
         console.error("Analytics load failed", error);
@@ -42,16 +42,19 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
         return;
       }
 
-      setEvents((data ?? []) as PptMaterialEvent[]);
-      setIsLoading(false);
+      const page = (data ?? []) as PptMaterialEvent[];
+      allEvents.push(...page);
+      if (page.length < pageSize) break;
+      from += pageSize;
     }
 
-    loadEvents();
-
-    return () => {
-      isMounted = false;
-    };
+    setEvents(allEvents);
+    setIsLoading(false);
   }, [setMessage, supabase]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   const stats = useMemo(() => buildStats(materials, events), [events, materials]);
   const totalClicks = stats.reduce((sum, item) => sum + item.clickCount, 0);
@@ -69,8 +72,13 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
               메인 자료실에서 PPT 자료를 클릭한 횟수와 미리보기 모달 체류시간을 확인합니다.
             </p>
           </div>
-          <button type="button" onClick={() => window.location.reload()} className="rounded-md border px-3 py-2 text-sm font-semibold">
-            새로고침
+          <button
+            type="button"
+            onClick={loadEvents}
+            disabled={isLoading}
+            className="rounded-md border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading ? "불러오는 중..." : "통계 새로고침"}
           </button>
         </div>
       </section>
