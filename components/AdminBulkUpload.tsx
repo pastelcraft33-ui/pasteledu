@@ -123,8 +123,9 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
         setItemStatus(item.id, "success");
       } catch (error) {
         console.error("Bulk upload failed", item.originalName, error);
+        const errorMessage = error instanceof Error ? error.message : "업로드 또는 등록에 실패했습니다.";
         failedNames.push(item.originalName);
-        setItemStatus(item.id, "failed", "업로드 또는 등록에 실패했습니다.");
+        setItemStatus(item.id, "failed", errorMessage);
       }
     }
 

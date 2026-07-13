@@ -97,7 +97,9 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setIsUploading(false);
 
     if (error) {
+      console.error("File upload failed", error);
       setMessage("파일 업로드에 실패했습니다. Storage 버킷과 권한을 확인해주세요.");
+      event.target.value = "";
       return;
     }
 
@@ -109,6 +111,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       setForm((current) => ({ ...current, thumbnail_url: data.publicUrl }));
       setMessage("썸네일 이미지 업로드가 완료되었습니다.");
     }
+    event.target.value = "";
   }
 
   function editMaterial(material: PptMaterialWithCategory) {
@@ -142,6 +145,11 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       return;
     }
 
+    if (!form.id && !form.file_url) {
+      setMessage("PPT/PPTX 파일을 업로드한 뒤 자료를 등록해주세요.");
+      return;
+    }
+
     setIsSaving(true);
     const monthCategoryId = form.secondary_category_id && form.secondary_category_id !== form.category_id ? form.secondary_category_id : null;
     const payload = {
@@ -164,6 +172,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setIsSaving(false);
 
     if (result.error) {
+      console.error("Material save failed", result.error);
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
       return;
     }
@@ -371,7 +380,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                   <td className="max-w-[240px] py-3 font-semibold">{material.title}</td>
                   <td>{formatMaterialCategories(material, categories)}</td>
                   <td className="max-w-[220px]">{(material.tags ?? []).join(", ") || "-"}</td>
-                  <td>{material.is_downloadable ? "가능" : "불가"}</td>
+                  <td>{material.file_url ? (material.is_downloadable ? "가능" : "불가") : "파일 없음"}</td>
                   <td>{material.sort_order}</td>
                   <td>{formatDate(material.created_at)}</td>
                   <td className="space-x-2 whitespace-nowrap">
