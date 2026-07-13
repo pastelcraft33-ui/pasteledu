@@ -6,11 +6,13 @@ type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
 type Props = {
   category: Category | null;
   materials: PptMaterial[];
+  hasMaterials: boolean;
   settings: BoardSettings;
   onSelectMaterial: (material: PptMaterial) => void;
+  onViewAll: () => void;
 };
 
-export default function CategoryColumn({ category, materials, settings, onSelectMaterial }: Props) {
+export default function CategoryColumn({ category, materials, hasMaterials, settings, onSelectMaterial, onViewAll }: Props) {
   const title = category?.name ?? "미분류";
   const description = category ? category.description : "카테고리가 지정되지 않은 자료입니다.";
   const backgroundColor = category?.column_color || settings.default_column_color;
@@ -22,7 +24,23 @@ export default function CategoryColumn({ category, materials, settings, onSelect
       style={{ backgroundColor, borderColor: settings.card_border_color }}
     >
       <div className="mb-3 sm:mb-4">
-        <h2 className="break-keep text-lg font-extrabold leading-snug sm:text-xl">{title}</h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="min-w-0 break-keep text-lg font-extrabold leading-snug sm:text-xl">{title}</h2>
+          <button
+            type="button"
+            onClick={onViewAll}
+            disabled={!hasMaterials}
+            className="shrink-0 rounded-md border px-2.5 py-1.5 text-xs font-bold transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
+            style={{
+              backgroundColor: settings.card_background_color,
+              borderColor: settings.card_border_color,
+              color: settings.text_color
+            }}
+            aria-label={`${title} 전체보기`}
+          >
+            전체보기
+          </button>
+        </div>
         {description ? <p className="mt-1 break-keep text-sm leading-5 opacity-70 sm:text-base sm:leading-6">{description}</p> : null}
       </div>
       <div

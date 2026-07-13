@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { SiteSettings } from "@/lib/types";
 
@@ -13,16 +12,13 @@ type Props = {
 
 export default function BoardHeader({ settings, isLoggedIn }: Props) {
   return (
-    <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-      <div className="flex h-[76px] w-full min-w-0 items-start justify-start overflow-hidden sm:h-[96px] lg:h-[132px] lg:w-auto">
-        <Image
-          src="/pastel-main-logo-original.png"
-          alt="파스텔에듀 로고"
-          width={800}
-          height={500}
-          priority
-          className="h-auto w-[310px] max-w-full shrink-0 -translate-x-[31px] -translate-y-[55px] object-contain sm:w-[460px] sm:-translate-x-[46px] sm:-translate-y-[84px] lg:w-[640px] lg:-translate-x-[64px] lg:-translate-y-[116px]"
-        />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div
+        className="min-w-0 text-3xl font-black leading-none sm:text-4xl lg:text-5xl"
+        style={{ color: settings.text_color, fontFamily: settings.font_family }}
+        aria-label="PASTEL - EDU"
+      >
+        PASTEL - EDU
       </div>
       <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center sm:justify-end sm:gap-3 lg:w-auto">
         <Link

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import BoardHeader from "@/components/BoardHeader";
+import CategoryOverviewModal from "@/components/CategoryOverviewModal";
 import CategoryColumn from "@/components/CategoryColumn";
 import EmptyState from "@/components/EmptyState";
 import MaterialModal from "@/components/MaterialModal";
@@ -39,6 +40,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
   const [query, setQuery] = useState("");
   const [activeCategoryGroup, setActiveCategoryGroup] = useState<CategoryGroup>("subject");
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
+  const [overviewCategory, setOverviewCategory] = useState<{ category: Category | null } | null>(null);
   const [urlMaterialId, setUrlMaterialId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [clientSettings, setClientSettings] = useState<SiteSettings | null>(settings);
@@ -151,6 +153,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
   }, [clientMaterials, urlMaterialId]);
 
   function openMaterial(material: PptMaterial) {
+    setOverviewCategory(null);
     setSelectedMaterial(material);
     setUrlMaterialId(material.id);
     updateMaterialUrl(material.id);
@@ -272,21 +275,39 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 key={category.id}
                 category={category}
                 materials={filteredMaterials.filter((material) => isMaterialInCategory(material, category.id))}
+                hasMaterials={clientMaterials.some((material) => isMaterialInCategory(material, category.id))}
                 settings={viewSettings}
                 onSelectMaterial={openMaterial}
+                onViewAll={() => setOverviewCategory({ category })}
               />
             ))}
             {shouldShowUncategorized ? (
               <CategoryColumn
                 category={null}
                 materials={uncategorizedMaterials}
+                hasMaterials={clientMaterials.some((material) => !material.category_id && !material.secondary_category_id)}
                 settings={viewSettings}
                 onSelectMaterial={openMaterial}
+                onViewAll={() => setOverviewCategory({ category: null })}
               />
             ) : null}
           </div>
         ) : null}
       </section>
+
+      {overviewCategory ? (
+        <CategoryOverviewModal
+          category={overviewCategory.category}
+          materials={clientMaterials.filter((material) =>
+            overviewCategory.category
+              ? isMaterialInCategory(material, overviewCategory.category.id)
+              : !material.category_id && !material.secondary_category_id
+          )}
+          settings={viewSettings}
+          onSelectMaterial={openMaterial}
+          onClose={() => setOverviewCategory(null)}
+        />
+      ) : null}
 
       {selectedMaterial ? (
         <MaterialModal
