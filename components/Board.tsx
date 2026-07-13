@@ -35,6 +35,7 @@ const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> =
 };
 
 export default function Board({ settings, categories, materials, hasDataError = false }: Props) {
+  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [query, setQuery] = useState("");
   const [activeCategoryGroup, setActiveCategoryGroup] = useState<CategoryGroup>("subject");
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
@@ -50,8 +51,6 @@ export default function Board({ settings, categories, materials, hasDataError = 
   const hasInitialServerData = categories.length > 0 || materials.length > 0 || Boolean(settings);
 
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-
     async function loadClientData() {
       if (!hasInitialServerData) setIsClientLoading(true);
       const timeout = new Promise<"timeout">((resolve) => {
@@ -103,7 +102,31 @@ export default function Board({ settings, categories, materials, hasDataError = 
     });
 
     return () => subscription.unsubscribe();
-  }, [hasInitialServerData]);
+  }, [hasInitialServerData, supabase]);
+
+  useEffect(() => {
+    if (!selectedMaterial) return;
+
+    const materialId = selectedMaterial.id;
+    const startedAt = Date.now();
+    let didRecordDuration = false;
+
+    recordMaterialEvent(supabase, materialId, "click");
+
+    function recordDuration() {
+      if (didRecordDuration) return;
+      didRecordDuration = true;
+      const durationSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+      recordMaterialEvent(supabase, materialId, "duration", durationSeconds);
+    }
+
+    window.addEventListener("beforeunload", recordDuration);
+
+    return () => {
+      recordDuration();
+      window.removeEventListener("beforeunload", recordDuration);
+    };
+  }, [selectedMaterial, supabase]);
 
   useEffect(() => {
     function syncMaterialIdFromUrl() {
@@ -309,4 +332,25 @@ function updateMaterialUrl(materialId: string | null) {
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   window.history.pushState({}, "", nextUrl);
+}
+
+function recordMaterialEvent(
+  supabase: ReturnType<typeof createBrowserSupabaseClient>,
+  materialId: string,
+  eventType: "click" | "duration",
+  durationSeconds?: number
+) {
+  supabase
+    .from("ppt_material_events")
+    .insert({
+      material_id: materialId,
+      event_type: eventType,
+      duration_seconds: durationSeconds ?? null,
+      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null
+    })
+    .then(({ error }) => {
+      if (error && process.env.NODE_ENV === "development") {
+        console.error("PPT 통계 이벤트 저장 실패", error);
+      }
+    });
 }

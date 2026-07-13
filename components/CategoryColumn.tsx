@@ -14,7 +14,7 @@ export default function CategoryColumn({ category, materials, settings, onSelect
   const title = category?.name ?? "미분류";
   const description = category ? category.description : "카테고리가 지정되지 않은 자료입니다.";
   const backgroundColor = category?.column_color || settings.default_column_color;
-  const shouldUseInternalScroll = materials.length > 3;
+  const shouldUseInternalScroll = materials.length > 2;
 
   return (
     <section
@@ -29,7 +29,7 @@ export default function CategoryColumn({ category, materials, settings, onSelect
         className={[
           "flex flex-col gap-3 pr-1",
           shouldUseInternalScroll
-            ? "max-h-[620px] overflow-y-auto overscroll-contain sm:max-h-[620px] lg:max-h-[620px]"
+            ? "max-h-[470px] overflow-y-auto overscroll-contain sm:max-h-[500px] lg:max-h-[520px]"
             : "overflow-visible"
         ].join(" ")}
         style={{ scrollbarGutter: shouldUseInternalScroll ? "stable" : undefined }}

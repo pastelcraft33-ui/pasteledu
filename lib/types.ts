@@ -27,6 +27,17 @@ export type PptMaterial = {
   updated_at: string;
 };
 
+export type MaterialEventType = "click" | "duration";
+
+export type PptMaterialEvent = {
+  id: string;
+  material_id: string | null;
+  event_type: MaterialEventType;
+  duration_seconds: number | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
 export type SiteSettings = {
   id: string;
   site_name: string;

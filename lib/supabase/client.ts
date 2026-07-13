@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 function getSupabaseEnv(): { supabaseUrl: string; supabaseAnonKey: string } {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,8 +21,17 @@ function getSupabaseEnv(): { supabaseUrl: string; supabaseAnonKey: string } {
 
 const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const globalForSupabase = globalThis as typeof globalThis & {
+  __pastelSupabaseClient?: SupabaseClient;
+};
+
+export const supabase =
+  globalForSupabase.__pastelSupabaseClient ?? createClient(supabaseUrl, supabaseAnonKey);
+
+globalForSupabase.__pastelSupabaseClient = supabase;
 
 export function createBrowserSupabaseClient() {
-  return createClient(supabaseUrl, supabaseAnonKey);
+  // 모든 클라이언트 컴포넌트가 동일한 Auth 저장소를 사용하는 하나의
+  // Supabase 인스턴스를 공유해야 세션 확인 충돌과 중복 이벤트가 생기지 않는다.
+  return supabase;
 }

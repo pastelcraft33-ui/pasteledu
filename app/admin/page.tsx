@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import AdminAnalytics from "@/components/AdminAnalytics";
 import AdminBulkUpload from "@/components/AdminBulkUpload";
 import AdminCategories from "@/components/AdminCategories";
 import AdminDesignSettings from "@/components/AdminDesignSettings";
@@ -13,7 +14,7 @@ import { isAllowedAdminEmail } from "@/lib/admin";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, PptMaterialWithCategory, SiteSettings } from "@/lib/types";
 
-type Tab = "materials" | "categories" | "site" | "design" | "bulk" | "order" | "thumbnails";
+type Tab = "materials" | "categories" | "site" | "design" | "bulk" | "order" | "thumbnails" | "analytics";
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "materials", label: "PPT 자료 관리" },
@@ -22,7 +23,8 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "design", label: "디자인 설정" },
   { id: "bulk", label: "대량 업로드" },
   { id: "order", label: "순서 관리" },
-  { id: "thumbnails", label: "썸네일 관리" }
+  { id: "thumbnails", label: "썸네일 관리" },
+  { id: "analytics", label: "방문 통계" }
 ];
 
 export default function AdminPage() {
@@ -313,6 +315,7 @@ export default function AdminPage() {
               setMessage={setMessage}
             />
           ) : null}
+          {tab === "analytics" ? <AdminAnalytics materials={materials} setMessage={setMessage} /> : null}
         </section>
       </div>
     </main>

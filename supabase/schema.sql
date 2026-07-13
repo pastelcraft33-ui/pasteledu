@@ -27,6 +27,21 @@ create table if not exists public.ppt_materials (
   updated_at timestamp with time zone default now()
 );
 
+create table if not exists public.ppt_material_events (
+  id uuid primary key default gen_random_uuid(),
+  material_id uuid references public.ppt_materials(id) on delete cascade,
+  event_type text not null check (event_type in ('click', 'duration')),
+  duration_seconds integer,
+  user_agent text,
+  created_at timestamp with time zone default now()
+);
+
+create index if not exists ppt_material_events_material_id_idx
+on public.ppt_material_events (material_id);
+
+create index if not exists ppt_material_events_created_at_idx
+on public.ppt_material_events (created_at desc);
+
 alter table public.categories
 add column if not exists category_groups text[] not null default array['subject'];
 
@@ -142,6 +157,7 @@ where not exists (select 1 from public.site_settings);
 
 alter table public.categories enable row level security;
 alter table public.ppt_materials enable row level security;
+alter table public.ppt_material_events enable row level security;
 alter table public.site_settings enable row level security;
 
 drop policy if exists "Public can read categories" on public.categories;
@@ -169,6 +185,18 @@ on public.ppt_materials for all
 to authenticated
 using (auth.role() = 'authenticated')
 with check (auth.role() = 'authenticated');
+
+drop policy if exists "Public can insert ppt material events" on public.ppt_material_events;
+create policy "Public can insert ppt material events"
+on public.ppt_material_events for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Authenticated can read ppt material events" on public.ppt_material_events;
+create policy "Authenticated can read ppt material events"
+on public.ppt_material_events for select
+to authenticated
+using (auth.role() = 'authenticated');
 
 drop policy if exists "Public can read site settings" on public.site_settings;
 create policy "Public can read site settings"
