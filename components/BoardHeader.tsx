@@ -17,7 +17,7 @@ export default function BoardHeader() {
           width={1632}
           height={403}
           priority
-          className="h-auto w-[270px] max-w-full object-contain sm:w-[360px] lg:w-[430px]"
+          className="h-auto w-[190px] max-w-full object-contain sm:w-[250px] lg:w-[300px]"
         />
       </Link>
     </div>

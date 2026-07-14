@@ -196,7 +196,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
   return (
     <main
-      className="min-h-screen"
+      className="flex min-h-screen flex-col"
       style={{
         backgroundColor: viewSettings.background_color,
         color: viewSettings.text_color,
@@ -240,7 +240,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
         </div>
       </section>
 
-      <section className="px-4 py-5 sm:px-8 sm:py-6">
+      <section className="flex-1 px-4 py-5 sm:px-8 sm:py-6">
         {clientDataError ? (
           <EmptyState
             title="자료실 데이터를 불러오지 못했습니다."
@@ -300,6 +300,20 @@ export default function Board({ settings, categories, materials, hasDataError = 
           </div>
         ) : null}
       </section>
+
+      <footer
+        className="border-t px-4 py-6 text-center sm:px-8"
+        style={{ backgroundColor: viewSettings.header_background_color, borderColor: viewSettings.card_border_color }}
+      >
+        <p className="text-sm font-medium opacity-70">ⓒ Pastel edu. All rights reserved.</p>
+        <a
+          href="/login"
+          className="mt-3 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-bold text-white shadow-sm"
+          style={{ backgroundColor: viewSettings.button_color }}
+        >
+          관리자 로그인
+        </a>
+      </footer>
 
       {overviewCategory ? (
         <CategoryOverviewModal
