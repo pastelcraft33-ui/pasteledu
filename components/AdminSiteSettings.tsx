@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { createSafeStorageFileName } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SiteSettings } from "@/lib/types";
 
@@ -55,7 +56,7 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
     }
 
     setIsUploading(true);
-    const path = createStoragePath(file.name);
+    const path = createSafeStorageFileName(file.name);
     const { error } = await supabase.storage.from("site-assets").upload(path, file, { upsert: false });
     setIsUploading(false);
     if (error) {
@@ -141,13 +142,6 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
       </button>
     </form>
   );
-}
-
-function createStoragePath(fileName: string) {
-  const safeFileName = fileName.replace(/[^a-zA-Z0-9가-힣._-]/g, "-");
-  const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-
-  return `${Date.now()}-${id}-${safeFileName}`;
 }
 
 function isAllowedImage(file: File) {

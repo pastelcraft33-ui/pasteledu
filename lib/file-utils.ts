@@ -14,10 +14,11 @@ export function isAllowedImageFile(file: File) {
 }
 
 export function createSafeStorageFileName(filename: string) {
-  const safeFileName = filename.replace(/[^a-zA-Z0-9가-힣._-]/g, "-");
+  const extension = getFileExtension(filename).replace(/[^a-z0-9]/g, "");
   const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  const storageName = `${Date.now()}-${id}`;
 
-  return `${Date.now()}-${id}-${safeFileName}`;
+  return extension ? `${storageName}.${extension}` : storageName;
 }
 
 export function getTitleFromFileName(filename: string) {
