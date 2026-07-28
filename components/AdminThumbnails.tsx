@@ -2,6 +2,8 @@
 
 import { ChangeEvent, useMemo, useState } from "react";
 import Image from "next/image";
+import AdminDownloadButton from "@/components/AdminDownloadButton";
+import { createDownloadFileName } from "@/lib/download-utils";
 import { createSafeStorageFileName, formatDate, isAllowedImageFile } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, PptMaterialWithCategory } from "@/lib/types";
@@ -219,6 +221,13 @@ export default function AdminThumbnails({ categories, materials, onChanged, setM
                     </div>
                   </dl>
                   <div className="flex flex-wrap gap-2">
+                    <AdminDownloadButton
+                      url={material.thumbnail_url}
+                      fileName={createDownloadFileName(`${material.title}-썸네일`, material.thumbnail_url || "", "jpg")}
+                      label="이미지 다운로드"
+                      setMessage={setMessage}
+                      className="py-2 text-emerald-700"
+                    />
                     <label className={`rounded-md px-3 py-2 text-sm font-bold text-white ${isUploading ? "cursor-not-allowed bg-gray-400" : "cursor-pointer bg-gray-900"}`}>
                       {isUploading ? "업로드 중..." : material.thumbnail_url ? "썸네일 교체" : "썸네일 업로드"}
                       <input

@@ -2,6 +2,8 @@
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import Image from "next/image";
+import AdminDownloadButton from "@/components/AdminDownloadButton";
+import { createDownloadFileName } from "@/lib/download-utils";
 import { createSafeStorageFileName, getFileExtension, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, CategoryGroup, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
@@ -383,13 +385,29 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                   <td>{material.file_url ? (material.is_downloadable ? "가능" : "불가") : "파일 없음"}</td>
                   <td>{material.sort_order}</td>
                   <td>{formatDate(material.created_at)}</td>
-                  <td className="space-x-2 whitespace-nowrap">
-                    <button type="button" onClick={() => editMaterial(material)} className="rounded-md border px-3 py-1">
-                      수정
-                    </button>
-                    <button type="button" onClick={() => deleteMaterial(material)} className="rounded-md border px-3 py-1 text-red-700">
-                      삭제
-                    </button>
+                  <td>
+                    <div className="flex min-w-[270px] flex-wrap gap-2">
+                      <AdminDownloadButton
+                        url={material.file_url}
+                        fileName={material.file_name || createDownloadFileName(material.title, material.file_url || "", "pptx")}
+                        label="PPT 다운로드"
+                        setMessage={setMessage}
+                        className="text-blue-700"
+                      />
+                      <AdminDownloadButton
+                        url={material.thumbnail_url}
+                        fileName={createDownloadFileName(`${material.title}-썸네일`, material.thumbnail_url || "", "jpg")}
+                        label="이미지 다운로드"
+                        setMessage={setMessage}
+                        className="text-emerald-700"
+                      />
+                      <button type="button" onClick={() => editMaterial(material)} className="rounded-md border px-3 py-1">
+                        수정
+                      </button>
+                      <button type="button" onClick={() => deleteMaterial(material)} className="rounded-md border px-3 py-1 text-red-700">
+                        삭제
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

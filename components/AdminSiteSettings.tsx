@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import AdminDownloadButton from "@/components/AdminDownloadButton";
+import { createDownloadFileName } from "@/lib/download-utils";
 import { createSafeStorageFileName } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SiteSettings } from "@/lib/types";
@@ -132,8 +134,14 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
         <aside className="rounded-lg border bg-gray-50 p-4">
           <h3 className="text-sm font-bold">현재 이미지 미리보기</h3>
           <div className="mt-4 space-y-4">
-            <PreviewImage label="현재 로고" url={form.logo_url} />
-            <PreviewImage label="현재 파비콘" url={form.favicon_url} small />
+            <PreviewImage label="현재 로고" url={form.logo_url} fileName={createDownloadFileName("사이트-로고", form.logo_url, "png")} setMessage={setMessage} />
+            <PreviewImage
+              label="현재 파비콘"
+              url={form.favicon_url}
+              fileName={createDownloadFileName("사이트-파비콘", form.favicon_url, "ico")}
+              setMessage={setMessage}
+              small
+            />
           </div>
         </aside>
       </div>
@@ -159,19 +167,40 @@ function Input({ label, value, onChange, required = false }: { label: string; va
   );
 }
 
-function PreviewImage({ label, url, small = false }: { label: string; url: string; small?: boolean }) {
+function PreviewImage({
+  label,
+  url,
+  fileName,
+  setMessage,
+  small = false
+}: {
+  label: string;
+  url: string;
+  fileName: string;
+  setMessage: (message: string) => void;
+  small?: boolean;
+}) {
   return (
     <div>
       <p className="text-xs font-semibold text-gray-500">{label}</p>
       {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={label}
-            className={`${small ? "h-12 w-12" : "h-24 w-full"} rounded-md border bg-white object-contain p-2`}
+        <>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={label}
+              className={`${small ? "h-12 w-12" : "h-24 w-full"} rounded-md border bg-white object-contain p-2`}
+            />
+          </a>
+          <AdminDownloadButton
+            url={url}
+            fileName={fileName}
+            label="이미지 다운로드"
+            setMessage={setMessage}
+            className="mt-2 py-2 text-emerald-700"
           />
-        </a>
+        </>
       ) : (
         <div className={`${small ? "h-12 w-12" : "h-24 w-full"} mt-2 flex items-center justify-center rounded-md border bg-white text-xs text-gray-400`}>
           이미지 없음
