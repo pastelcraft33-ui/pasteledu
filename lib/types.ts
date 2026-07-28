@@ -11,6 +11,8 @@ export type Category = {
 
 export type CategoryGroup = "subject" | "month";
 
+export type AgeGroup = "유치부" | "저학년" | "고학년" | "중등부" | "고등부" | "시니어";
+
 export type PptMaterial = {
   id: string;
   category_id: string | null;
@@ -18,6 +20,7 @@ export type PptMaterial = {
   title: string;
   description: string | null;
   tags: string[];
+  age_groups: AgeGroup[];
   thumbnail_url: string | null;
   file_url: string | null;
   file_name: string | null;
@@ -72,6 +75,7 @@ export type MaterialFormState = {
   title: string;
   description: string;
   tags: string;
+  age_groups: AgeGroup[];
   thumbnail_url: string;
   file_url: string;
   file_name: string;

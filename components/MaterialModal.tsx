@@ -136,6 +136,21 @@ export default function MaterialModal({ material, categoryName, settings, onClos
             )}
           </div>
 
+          <div className="mt-5">
+            <p className="text-xs font-semibold text-gray-500">연령</p>
+            {material.age_groups?.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {material.age_groups.map((ageGroup) => (
+                  <span key={ageGroup} className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
+                    {ageGroup}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-gray-600">-</p>
+            )}
+          </div>
+
           <dl className="mt-6 space-y-3 border-t pt-5 text-sm" style={{ borderColor: settings.card_border_color }}>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-500">파일명</dt>

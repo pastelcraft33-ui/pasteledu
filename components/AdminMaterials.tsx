@@ -6,7 +6,7 @@ import AdminDownloadButton from "@/components/AdminDownloadButton";
 import { createDownloadFileName } from "@/lib/download-utils";
 import { createSafeStorageFileName, getFileExtension, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Category, CategoryGroup, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
+import type { AgeGroup, Category, CategoryGroup, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
   categories: Category[];
@@ -21,6 +21,7 @@ const emptyForm: MaterialFormState = {
   title: "",
   description: "",
   tags: "",
+  age_groups: [],
   thumbnail_url: "",
   file_url: "",
   file_name: "",
@@ -29,6 +30,7 @@ const emptyForm: MaterialFormState = {
 };
 
 const thumbnailExtensions = ["jpg", "jpeg", "png", "webp"];
+const ageGroupOptions: AgeGroup[] = ["유치부", "저학년", "고학년", "중등부", "고등부", "시니어"];
 
 export default function AdminMaterials({ categories, materials, onChanged, setMessage }: Props) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
@@ -68,6 +70,15 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
 
   function updateField<K extends keyof MaterialFormState>(key: K, value: MaterialFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleAgeGroup(ageGroup: AgeGroup) {
+    setForm((current) => ({
+      ...current,
+      age_groups: current.age_groups.includes(ageGroup)
+        ? current.age_groups.filter((item) => item !== ageGroup)
+        : [...current.age_groups, ageGroup]
+    }));
   }
 
   function openCreateForm() {
@@ -124,6 +135,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       title: material.title,
       description: material.description ?? "",
       tags: (material.tags ?? []).join(", "),
+      age_groups: material.age_groups ?? [],
       thumbnail_url: material.thumbnail_url ?? "",
       file_url: material.file_url ?? "",
       file_name: material.file_name ?? "",
@@ -160,6 +172,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       title: form.title.trim(),
       description: form.description.trim() || null,
       tags: parseTagsInput(form.tags),
+      age_groups: form.age_groups,
       thumbnail_url: form.thumbnail_url || null,
       file_url: form.file_url || null,
       file_name: form.file_name || null,
@@ -175,6 +188,10 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
 
     if (result.error) {
       console.error("Material save failed", result.error);
+      if (result.error.code === "42703" && result.error.message.includes("age_groups")) {
+        setMessage("연령 정보를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-age-groups.sql을 먼저 실행해주세요.");
+        return;
+      }
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
       return;
     }
@@ -323,6 +340,32 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                 다운로드 가능 여부
               </label>
             </div>
+            <fieldset className="lg:col-span-2">
+              <legend className="text-sm font-semibold">연령</legend>
+              <p className="mt-1 text-xs text-gray-500">해당 자료에 맞는 연령을 여러 개 선택할 수 있습니다.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ageGroupOptions.map((ageGroup) => {
+                  const isSelected = form.age_groups.includes(ageGroup);
+
+                  return (
+                    <label
+                      key={ageGroup}
+                      className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                        isSelected ? "border-gray-900 bg-gray-900 text-white" : "border-gray-300 bg-white text-gray-700"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleAgeGroup(ageGroup)}
+                        className="h-4 w-4 accent-gray-900"
+                      />
+                      {ageGroup}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
             <FileField
               label="썸네일 이미지"
               accept=".jpg,.jpeg,.png,.webp"

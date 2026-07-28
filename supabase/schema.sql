@@ -18,6 +18,7 @@ create table if not exists public.ppt_materials (
   title text not null,
   description text,
   tags text[] default '{}',
+  age_groups text[] not null default '{}',
   thumbnail_url text,
   file_url text,
   file_name text,
@@ -47,6 +48,19 @@ add column if not exists category_groups text[] not null default array['subject'
 
 alter table public.ppt_materials
 add column if not exists secondary_category_id uuid references public.categories(id) on delete set null;
+
+alter table public.ppt_materials
+add column if not exists age_groups text[];
+
+update public.ppt_materials
+set age_groups = '{}'
+where age_groups is null;
+
+alter table public.ppt_materials
+alter column age_groups set default '{}';
+
+alter table public.ppt_materials
+alter column age_groups set not null;
 
 update public.categories
 set category_groups = array['subject']
