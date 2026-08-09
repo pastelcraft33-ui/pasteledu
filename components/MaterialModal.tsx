@@ -11,9 +11,10 @@ type Props = {
   categoryName: string;
   settings: BoardSettings;
   onClose: () => void;
+  onDownload: () => void;
 };
 
-export default function MaterialModal({ material, categoryName, settings, onClose }: Props) {
+export default function MaterialModal({ material, categoryName, settings, onClose, onDownload }: Props) {
   const fileUrl = material.file_url ?? "";
   const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
   const previewUrl = fileUrl ? createOfficePreviewUrl(fileUrl) : "";
@@ -176,6 +177,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={onDownload}
                 className="rounded-md px-4 py-3 text-center text-sm font-bold text-white"
                 style={{ backgroundColor: settings.button_color }}
               >

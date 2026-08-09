@@ -32,11 +32,19 @@ create table if not exists public.ppt_materials (
 create table if not exists public.ppt_material_events (
   id uuid primary key default gen_random_uuid(),
   material_id uuid references public.ppt_materials(id) on delete cascade,
-  event_type text not null check (event_type in ('click', 'duration')),
+  event_type text not null check (event_type in ('click', 'duration', 'download')),
   duration_seconds integer,
   user_agent text,
   created_at timestamp with time zone default now()
 );
+
+-- 기존 프로젝트에서 다운로드 통계를 사용할 수 있도록 이벤트 제약조건을 갱신합니다.
+alter table public.ppt_material_events
+drop constraint if exists ppt_material_events_event_type_check;
+
+alter table public.ppt_material_events
+add constraint ppt_material_events_event_type_check
+check (event_type in ('click', 'duration', 'download'));
 
 create index if not exists ppt_material_events_material_id_idx
 on public.ppt_material_events (material_id);

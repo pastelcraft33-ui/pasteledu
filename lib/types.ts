@@ -35,7 +35,7 @@ export type PptMaterial = {
   updated_at: string;
 };
 
-export type MaterialEventType = "click" | "duration";
+export type MaterialEventType = "click" | "duration" | "download";
 
 export type PptMaterialEvent = {
   id: string;

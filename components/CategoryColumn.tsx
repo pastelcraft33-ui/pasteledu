@@ -12,6 +12,7 @@ type Props = {
   hasMaterials?: boolean;
   settings: BoardSettings;
   onSelectMaterial: (material: PptMaterial) => void;
+  onDownloadMaterial: (material: PptMaterial) => void;
   onViewAll?: () => void;
 };
 
@@ -24,6 +25,7 @@ export default function CategoryColumn({
   hasMaterials = materials.length > 0,
   settings,
   onSelectMaterial,
+  onDownloadMaterial,
   onViewAll
 }: Props) {
   const title = titleOverride ?? category?.name ?? "미분류";
@@ -75,6 +77,7 @@ export default function CategoryColumn({
               material={material}
               settings={settings}
               onClick={() => onSelectMaterial(material)}
+              onDownload={() => onDownloadMaterial(material)}
             />
           ))}
           {materials.length === 0 ? (
@@ -119,6 +122,7 @@ export default function CategoryColumn({
             material={material}
             settings={settings}
             onClick={() => onSelectMaterial(material)}
+            onDownload={() => onDownloadMaterial(material)}
           />
         ))}
         {materials.length === 0 ? (

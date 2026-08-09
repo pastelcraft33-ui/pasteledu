@@ -12,9 +12,9 @@ type Props = {
 type MaterialStats = {
   material: PptMaterialWithCategory;
   clickCount: number;
+  downloadCount: number;
   totalDurationSeconds: number;
   averageDurationSeconds: number;
-  lastClickedAt: string | null;
 };
 
 export default function AdminAnalytics({ materials, setMessage }: Props) {
@@ -58,6 +58,7 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
 
   const stats = useMemo(() => buildStats(materials, events), [events, materials]);
   const totalClicks = stats.reduce((sum, item) => sum + item.clickCount, 0);
+  const totalDownloads = stats.reduce((sum, item) => sum + item.downloadCount, 0);
   const totalDurationSeconds = stats.reduce((sum, item) => sum + item.totalDurationSeconds, 0);
   const clickedMaterialCount = stats.filter((item) => item.clickCount > 0).length;
   const averageDurationSeconds = totalClicks > 0 ? Math.round(totalDurationSeconds / totalClicks) : 0;
@@ -69,7 +70,7 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
           <div>
             <h2 className="text-lg font-bold">방문 통계</h2>
             <p className="mt-1 text-sm leading-6 text-gray-500">
-              메인 자료실에서 PPT 자료를 클릭한 횟수와 미리보기 모달 체류시간을 확인합니다.
+              메인 자료실에서 PPT 자료를 클릭하고 다운로드한 횟수와 미리보기 모달 체류시간을 확인합니다.
             </p>
           </div>
           <button
@@ -83,8 +84,9 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryCard label="전체 클릭" value={`${totalClicks}회`} />
+        <SummaryCard label="전체 다운로드" value={`${totalDownloads}회`} />
         <SummaryCard label="클릭된 자료" value={`${clickedMaterialCount}개`} />
         <SummaryCard label="총 체류시간" value={formatDuration(totalDurationSeconds)} />
         <SummaryCard label="평균 체류시간" value={formatDuration(averageDurationSeconds)} />
@@ -100,15 +102,15 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
         ) : null}
         {!isLoading && stats.length > 0 ? (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead>
                 <tr className="border-b text-gray-600">
                   <th className="py-2">자료명</th>
                   <th>파일명</th>
                   <th>클릭횟수</th>
+                  <th>다운로드횟수</th>
                   <th>총 체류시간</th>
                   <th>평균 체류시간</th>
-                  <th>최근 클릭</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,9 +119,9 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
                     <td className="max-w-[260px] py-3 font-semibold">{item.material.title}</td>
                     <td className="max-w-[240px] truncate">{item.material.file_name || "-"}</td>
                     <td>{item.clickCount}회</td>
+                    <td>{item.downloadCount}회</td>
                     <td>{formatDuration(item.totalDurationSeconds)}</td>
                     <td>{formatDuration(item.averageDurationSeconds)}</td>
-                    <td>{item.lastClickedAt ? formatDateTime(item.lastClickedAt) : "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -144,20 +146,26 @@ function buildStats(materials: PptMaterialWithCategory[], events: PptMaterialEve
     .map((material) => {
       const materialEvents = grouped.get(material.id) ?? [];
       const clickEvents = materialEvents.filter((event) => event.event_type === "click");
+      const downloadEvents = materialEvents.filter((event) => event.event_type === "download");
       const durationEvents = materialEvents.filter((event) => event.event_type === "duration");
       const totalDurationSeconds = durationEvents.reduce((sum, event) => sum + (event.duration_seconds ?? 0), 0);
       const averageDurationSeconds = clickEvents.length > 0 ? Math.round(totalDurationSeconds / clickEvents.length) : 0;
-      const lastClickedAt = clickEvents[0]?.created_at ?? null;
 
       return {
         material,
         clickCount: clickEvents.length,
+        downloadCount: downloadEvents.length,
         totalDurationSeconds,
-        averageDurationSeconds,
-        lastClickedAt
+        averageDurationSeconds
       } satisfies MaterialStats;
     })
-    .sort((a, b) => b.clickCount - a.clickCount || b.totalDurationSeconds - a.totalDurationSeconds || a.material.title.localeCompare(b.material.title));
+    .sort(
+      (a, b) =>
+        b.downloadCount - a.downloadCount ||
+        b.clickCount - a.clickCount ||
+        b.totalDurationSeconds - a.totalDurationSeconds ||
+        a.material.title.localeCompare(b.material.title)
+    );
 }
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
@@ -177,14 +185,4 @@ function formatDuration(seconds: number) {
   if (minutes === 0) return `${restSeconds}초`;
   if (restSeconds === 0) return `${minutes}분`;
   return `${minutes}분 ${restSeconds}초`;
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
 }

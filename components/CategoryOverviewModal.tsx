@@ -11,10 +11,11 @@ type Props = {
   materials: PptMaterial[];
   settings: BoardSettings;
   onSelectMaterial: (material: PptMaterial) => void;
+  onDownloadMaterial: (material: PptMaterial) => void;
   onClose: () => void;
 };
 
-export default function CategoryOverviewModal({ category, materials, settings, onSelectMaterial, onClose }: Props) {
+export default function CategoryOverviewModal({ category, materials, settings, onSelectMaterial, onDownloadMaterial, onClose }: Props) {
   const title = category?.name ?? "미분류";
   const description = category?.description || (category ? "" : "카테고리가 지정되지 않은 자료입니다.");
 
@@ -80,6 +81,7 @@ export default function CategoryOverviewModal({ category, materials, settings, o
                 material={material}
                 settings={settings}
                 onClick={() => onSelectMaterial(material)}
+                onDownload={() => onDownloadMaterial(material)}
               />
             ))}
           </div>

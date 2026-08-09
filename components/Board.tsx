@@ -12,7 +12,7 @@ import MaterialModal from "@/components/MaterialModal";
 import SearchBar from "@/components/SearchBar";
 import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Category, CategoryGroup, LibrarySection, LibraryView, PptMaterial, SiteSettings } from "@/lib/types";
+import type { Category, CategoryGroup, LibrarySection, LibraryView, MaterialEventType, PptMaterial, SiteSettings } from "@/lib/types";
 
 type Props = {
   settings: SiteSettings | null;
@@ -181,6 +181,10 @@ export default function Board({ settings, categories, materials, hasDataError = 
     setSelectedMaterial(null);
     setUrlMaterialId(null);
     updateMaterialUrl(null);
+  }
+
+  function recordDownload(material: PptMaterial) {
+    recordMaterialEvent(supabase, material.id, "download");
   }
 
   function goHome() {
@@ -429,6 +433,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                       hasMaterials
                       settings={viewSettings}
                       onSelectMaterial={openMaterial}
+                      onDownloadMaterial={recordDownload}
                       onViewAll={() => setActiveView(section)}
                     />
                   );
@@ -442,6 +447,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 materials={filteredMaterials}
                 settings={viewSettings}
                 onSelectMaterial={openMaterial}
+                onDownloadMaterial={recordDownload}
               />
             ) : null}
             {activeCategoryGroup ? (
@@ -463,6 +469,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                       hasMaterials={hasCategoryMaterials}
                       settings={viewSettings}
                       onSelectMaterial={openMaterial}
+                      onDownloadMaterial={recordDownload}
                       onViewAll={() => setOverviewCategory(category)}
                     />
                   );
@@ -495,6 +502,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
           )}
           settings={viewSettings}
           onSelectMaterial={openMaterial}
+          onDownloadMaterial={recordDownload}
           onClose={() => setOverviewCategory(null)}
         />
       ) : null}
@@ -504,6 +512,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
           material={selectedMaterial}
           categoryName={selectedCategoryName}
           settings={viewSettings}
+          onDownload={() => recordDownload(selectedMaterial)}
           onClose={closeMaterial}
         />
       ) : null}
@@ -605,7 +614,7 @@ function updateMaterialUrl(materialId: string | null) {
 function recordMaterialEvent(
   supabase: ReturnType<typeof createBrowserSupabaseClient>,
   materialId: string,
-  eventType: "click" | "duration",
+  eventType: MaterialEventType,
   durationSeconds?: number
 ) {
   supabase

@@ -10,9 +10,10 @@ type Props = {
   material: PptMaterial;
   settings: BoardSettings;
   onClick: () => void;
+  onDownload: () => void;
 };
 
-export default function MaterialCard({ material, settings, onClick }: Props) {
+export default function MaterialCard({ material, settings, onClick, onDownload }: Props) {
   const formattedDate = formatDate(material.created_at);
   const [thumbnailState, setThumbnailState] = useState<"loading" | "loaded" | "error">(
     material.thumbnail_url ? "loading" : "error"
@@ -79,7 +80,10 @@ export default function MaterialCard({ material, settings, onClick }: Props) {
               href={material.file_url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDownload();
+              }}
               className="w-fit shrink-0 rounded-md px-3 py-2 text-sm font-bold text-white sm:px-3.5 sm:text-base"
               style={{ backgroundColor: settings.button_color }}
             >
