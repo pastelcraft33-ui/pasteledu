@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import AdminDownloadButton from "@/components/AdminDownloadButton";
 import { createDownloadFileName } from "@/lib/download-utils";
 import { createSafeStorageFileName } from "@/lib/file-utils";
+import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SiteSettings } from "@/lib/types";
 
@@ -19,14 +20,34 @@ type SiteForm = {
   header_description: string;
   logo_url: string;
   favicon_url: string;
+  kindergarten_banner_title: string;
+  kindergarten_banner_description: string;
+  kindergarten_banner_image_url: string;
+  elementary_banner_title: string;
+  elementary_banner_description: string;
+  elementary_banner_image_url: string;
+  senior_banner_title: string;
+  senior_banner_description: string;
+  senior_banner_image_url: string;
 };
+
+type ImageField = "logo_url" | "favicon_url" | "kindergarten_banner_image_url" | "elementary_banner_image_url" | "senior_banner_image_url";
 
 const emptyForm: SiteForm = {
   site_name: "Pastel PPT Library",
   header_title: "파스텔에듀 수업자료실",
   header_description: "필요한 수업자료를 카테고리별로 확인하고 다운로드할 수 있습니다.",
   logo_url: "",
-  favicon_url: ""
+  favicon_url: "",
+  kindergarten_banner_title: libraryBannerDefaults.kindergarten.title,
+  kindergarten_banner_description: "유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.",
+  kindergarten_banner_image_url: libraryBannerDefaults.kindergarten.imageUrl,
+  elementary_banner_title: libraryBannerDefaults.elementary.title,
+  elementary_banner_description: "초등 수업에 바로 활용할 수 있는 자료를 모았습니다.",
+  elementary_banner_image_url: libraryBannerDefaults.elementary.imageUrl,
+  senior_banner_title: libraryBannerDefaults.senior.title,
+  senior_banner_description: "시니어 학습과 활동을 위한 자료를 만나보세요.",
+  senior_banner_image_url: libraryBannerDefaults.senior.imageUrl
 };
 const imageExtensions = ["jpg", "jpeg", "png", "webp", "ico"];
 
@@ -43,16 +64,29 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
       header_title: settings.header_title,
       header_description: settings.header_description ?? "",
       logo_url: settings.logo_url ?? "",
-      favicon_url: settings.favicon_url ?? ""
+      favicon_url: settings.favicon_url ?? "",
+      kindergarten_banner_title: resolveLibraryBannerTitle("kindergarten", settings.kindergarten_banner_title),
+      kindergarten_banner_description: settings.kindergarten_banner_description ?? emptyForm.kindergarten_banner_description,
+      kindergarten_banner_image_url: resolveLibraryBannerImage("kindergarten", settings.kindergarten_banner_image_url),
+      elementary_banner_title: resolveLibraryBannerTitle("elementary", settings.elementary_banner_title),
+      elementary_banner_description: settings.elementary_banner_description ?? emptyForm.elementary_banner_description,
+      elementary_banner_image_url: resolveLibraryBannerImage("elementary", settings.elementary_banner_image_url),
+      senior_banner_title: resolveLibraryBannerTitle("senior", settings.senior_banner_title),
+      senior_banner_description: settings.senior_banner_description ?? emptyForm.senior_banner_description,
+      senior_banner_image_url: resolveLibraryBannerImage("senior", settings.senior_banner_image_url)
     });
   }, [settings]);
 
-  async function uploadAsset(event: ChangeEvent<HTMLInputElement>, field: "logo_url" | "favicon_url") {
+  function updateField<K extends keyof SiteForm>(field: K, value: SiteForm[K]) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function uploadAsset(event: ChangeEvent<HTMLInputElement>, field: ImageField) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (!isAllowedImage(file)) {
-      setMessage("로고와 파비콘은 jpg, jpeg, png, webp, ico 파일만 업로드할 수 있습니다.");
+      setMessage("사이트 이미지는 JPG, PNG, WEBP 또는 ICO 파일만 업로드할 수 있습니다.");
       event.target.value = "";
       return;
     }
@@ -72,7 +106,13 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form.site_name.trim() || !form.header_title.trim()) {
+    if (
+      !form.site_name.trim() ||
+      !form.header_title.trim() ||
+      !form.kindergarten_banner_title.trim() ||
+      !form.elementary_banner_title.trim() ||
+      !form.senior_banner_title.trim()
+    ) {
       setMessage("필수 항목을 입력해주세요.");
       return;
     }
@@ -83,7 +123,16 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
       header_title: form.header_title.trim(),
       header_description: form.header_description,
       logo_url: form.logo_url || null,
-      favicon_url: form.favicon_url || null
+      favicon_url: form.favicon_url || null,
+      kindergarten_banner_title: form.kindergarten_banner_title.trim(),
+      kindergarten_banner_description: form.kindergarten_banner_description.trim() || null,
+      kindergarten_banner_image_url: form.kindergarten_banner_image_url || null,
+      elementary_banner_title: form.elementary_banner_title.trim(),
+      elementary_banner_description: form.elementary_banner_description.trim() || null,
+      elementary_banner_image_url: form.elementary_banner_image_url || null,
+      senior_banner_title: form.senior_banner_title.trim(),
+      senior_banner_description: form.senior_banner_description.trim() || null,
+      senior_banner_image_url: form.senior_banner_image_url || null
     };
 
     const result = settings?.id
@@ -92,6 +141,11 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
     setIsSaving(false);
 
     if (result.error) {
+      console.error("Site settings save failed", result.error);
+      if (result.error.code === "42703" && result.error.message.includes("banner_")) {
+        setMessage("관별 배너를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-library-banners.sql을 먼저 실행해주세요.");
+        return;
+      }
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
       return;
     }
@@ -145,10 +199,104 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
           </div>
         </aside>
       </div>
+
+      <section className="mt-8 border-t pt-6">
+        <div>
+          <h3 className="text-base font-bold">관별 배너 설정</h3>
+          <p className="mt-1 text-sm text-gray-500">각 관을 선택했을 때 메인 화면에 표시되는 제목, 설명과 배너 이미지를 관리합니다.</p>
+        </div>
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <BannerEditor
+            label="유치원관"
+            title={form.kindergarten_banner_title}
+            description={form.kindergarten_banner_description}
+            imageUrl={form.kindergarten_banner_image_url}
+            onTitleChange={(value) => updateField("kindergarten_banner_title", value)}
+            onDescriptionChange={(value) => updateField("kindergarten_banner_description", value)}
+            onImageChange={(event) => uploadAsset(event, "kindergarten_banner_image_url")}
+            onImageUrlChange={(value) => updateField("kindergarten_banner_image_url", value)}
+            onImageRemove={() => updateField("kindergarten_banner_image_url", "")}
+          />
+          <BannerEditor
+            label="초등관"
+            title={form.elementary_banner_title}
+            description={form.elementary_banner_description}
+            imageUrl={form.elementary_banner_image_url}
+            onTitleChange={(value) => updateField("elementary_banner_title", value)}
+            onDescriptionChange={(value) => updateField("elementary_banner_description", value)}
+            onImageChange={(event) => uploadAsset(event, "elementary_banner_image_url")}
+            onImageUrlChange={(value) => updateField("elementary_banner_image_url", value)}
+            onImageRemove={() => updateField("elementary_banner_image_url", "")}
+          />
+          <BannerEditor
+            label="시니어관"
+            title={form.senior_banner_title}
+            description={form.senior_banner_description}
+            imageUrl={form.senior_banner_image_url}
+            onTitleChange={(value) => updateField("senior_banner_title", value)}
+            onDescriptionChange={(value) => updateField("senior_banner_description", value)}
+            onImageChange={(event) => uploadAsset(event, "senior_banner_image_url")}
+            onImageUrlChange={(value) => updateField("senior_banner_image_url", value)}
+            onImageRemove={() => updateField("senior_banner_image_url", "")}
+          />
+        </div>
+      </section>
       <button type="submit" disabled={isSaving || isUploading} className="mt-5 rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
         {isSaving ? "저장 중..." : isUploading ? "업로드 중..." : "사이트 정보 저장"}
       </button>
     </form>
+  );
+}
+
+function BannerEditor({
+  label,
+  title,
+  description,
+  imageUrl,
+  onTitleChange,
+  onDescriptionChange,
+  onImageChange,
+  onImageUrlChange,
+  onImageRemove
+}: {
+  label: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  onTitleChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onImageUrlChange: (value: string) => void;
+  onImageRemove: () => void;
+}) {
+  return (
+    <fieldset className="rounded-lg border p-4">
+      <legend className="px-1 text-sm font-bold">{label} 배너</legend>
+      <div className="space-y-4">
+        <Input label="배너 제목" value={title} onChange={onTitleChange} required />
+        <label className="block">
+          <span className="text-sm font-semibold">배너 설명</span>
+          <textarea value={description} onChange={(event) => onDescriptionChange(event.target.value)} className="mt-1 min-h-24 w-full rounded-md border px-3 py-2" />
+        </label>
+        <label className="block">
+          <span className="text-sm font-semibold">배너 이미지 업로드</span>
+          <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={onImageChange} className="mt-1 w-full text-sm" />
+          <p className="mt-1 text-xs text-gray-500">권장 비율은 가로형 5:1입니다. 새 파일을 선택하지 않으면 기존 이미지가 유지됩니다.</p>
+        </label>
+        <Input label="배너 이미지 URL" value={imageUrl} onChange={onImageUrlChange} />
+        {imageUrl ? (
+          <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl} alt={`${label} 배너 미리보기`} className="aspect-[5/1] w-full rounded-md border bg-gray-50 object-cover" />
+            <button type="button" onClick={onImageRemove} className="mt-2 rounded-md border px-3 py-2 text-sm font-semibold text-red-700">
+              배너 이미지 삭제
+            </button>
+          </div>
+        ) : (
+          <div className="flex aspect-[5/1] items-center justify-center rounded-md border border-dashed bg-gray-50 text-xs text-gray-400">배너 이미지 없음</div>
+        )}
+      </div>
+    </fieldset>
   );
 }
 

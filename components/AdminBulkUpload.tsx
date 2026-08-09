@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { createSafeStorageFileName, getTitleFromFileName, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { BulkUploadFileItem, Category, CategoryGroup, PptMaterialWithCategory } from "@/lib/types";
+import type { BulkUploadFileItem, Category, CategoryGroup, LibrarySection, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
   categories: Category[];
@@ -24,6 +24,7 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
   const [items, setItems] = useState<BulkUploadFileItem[]>([]);
   const [subjectCategoryId, setSubjectCategoryId] = useState("");
   const [monthCategoryId, setMonthCategoryId] = useState("");
+  const [librarySection, setLibrarySection] = useState<LibrarySection>("elementary");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [isDownloadable, setIsDownloadable] = useState(true);
@@ -108,6 +109,7 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
           title: item.expectedTitle,
           description: description.trim() || null,
           tags: parsedTags,
+          library_sections: [librarySection],
           thumbnail_url: null,
           file_url: data.publicUrl,
           file_name: item.originalName,
@@ -185,6 +187,20 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">카테고리 관리에서 “주제별”로 체크된 카테고리만 표시됩니다.</p>
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-semibold">기본 노출 영역</span>
+            <select
+              value={librarySection}
+              onChange={(event) => setLibrarySection(event.target.value as LibrarySection)}
+              className="mt-1 w-full rounded-md border px-3 py-2"
+            >
+              <option value="kindergarten">유치원관</option>
+              <option value="elementary">초등관</option>
+              <option value="senior">시니어관</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">대량 등록 후 PPT 자료 관리에서 여러 관으로 변경할 수 있습니다.</p>
           </label>
 
           <label className="block">

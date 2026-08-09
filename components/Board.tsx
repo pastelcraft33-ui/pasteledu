@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, Shapes, ShoppingBag, type LucideIcon } from "lucide-react";
 import BoardHeader from "@/components/BoardHeader";
 import CategoryOverviewModal from "@/components/CategoryOverviewModal";
 import CategoryColumn from "@/components/CategoryColumn";
 import EmptyState from "@/components/EmptyState";
+import LibraryBanner from "@/components/LibraryBanner";
+import LibrarySectionNav from "@/components/LibrarySectionNav";
 import MaterialModal from "@/components/MaterialModal";
 import SearchBar from "@/components/SearchBar";
+import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { Category, CategoryGroup, PptMaterial, SiteSettings } from "@/lib/types";
+import type { Category, CategoryGroup, LibrarySection, LibraryView, PptMaterial, SiteSettings } from "@/lib/types";
 
 type Props = {
   settings: SiteSettings | null;
@@ -16,6 +20,8 @@ type Props = {
   materials: PptMaterial[];
   hasDataError?: boolean;
 };
+
+type ActiveLibraryView = LibraryView | "home";
 
 const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> = {
   site_name: "Pastel PPT Library",
@@ -25,6 +31,17 @@ const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> =
   favicon_url: null,
   background_color: "#ffffff",
   header_background_color: "#ffffff",
+  banner_background_color: "#fce7f3",
+  banner_text_color: "#db3f72",
+  kindergarten_banner_title: libraryBannerDefaults.kindergarten.title,
+  kindergarten_banner_description: "유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.",
+  kindergarten_banner_image_url: libraryBannerDefaults.kindergarten.imageUrl,
+  elementary_banner_title: libraryBannerDefaults.elementary.title,
+  elementary_banner_description: "초등 수업에 바로 활용할 수 있는 자료를 모았습니다.",
+  elementary_banner_image_url: libraryBannerDefaults.elementary.imageUrl,
+  senior_banner_title: libraryBannerDefaults.senior.title,
+  senior_banner_description: "시니어 학습과 활동을 위한 자료를 만나보세요.",
+  senior_banner_image_url: libraryBannerDefaults.senior.imageUrl,
   default_column_color: "#ffffff",
   card_background_color: "#ffffff",
   card_border_color: "#e5e7eb",
@@ -38,9 +55,9 @@ const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> =
 export default function Board({ settings, categories, materials, hasDataError = false }: Props) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [query, setQuery] = useState("");
-  const [activeCategoryGroup, setActiveCategoryGroup] = useState<CategoryGroup>("subject");
+  const [activeView, setActiveView] = useState<ActiveLibraryView>("home");
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
-  const [overviewCategory, setOverviewCategory] = useState<{ category: Category | null } | null>(null);
+  const [overviewCategory, setOverviewCategory] = useState<Category | null>(null);
   const [urlMaterialId, setUrlMaterialId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [clientSettings, setClientSettings] = useState<SiteSettings | null>(settings);
@@ -155,7 +172,6 @@ export default function Board({ settings, categories, materials, hasDataError = 
   }, [clientMaterials, urlMaterialId]);
 
   function openMaterial(material: PptMaterial) {
-    setOverviewCategory(null);
     setSelectedMaterial(material);
     setUrlMaterialId(material.id);
     updateMaterialUrl(material.id);
@@ -167,10 +183,36 @@ export default function Board({ settings, categories, materials, hasDataError = 
     updateMaterialUrl(null);
   }
 
-  const filteredMaterials = useMemo(() => {
-    if (!normalizedQuery) return clientMaterials;
+  function goHome() {
+    setActiveView("home");
+    setQuery("");
+    setOverviewCategory(null);
+    setSelectedMaterial(null);
+    setUrlMaterialId(null);
+    updateMaterialUrl(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
-    return clientMaterials.filter((material) => {
+  const isHome = activeView === "home";
+  const activeCategoryGroup = isCategoryGroup(activeView) ? activeView : null;
+  const activeLibrarySection = isLibrarySection(activeView) ? activeView : null;
+
+  const viewMaterials = useMemo(() => {
+    if (activeView === "home") return clientMaterials;
+
+    if (isLibrarySection(activeView)) {
+      return clientMaterials.filter((material) => getMaterialLibrarySections(material).includes(activeView));
+    }
+
+    return clientMaterials.filter((material) =>
+      activeView === "month" ? Boolean(material.secondary_category_id) : Boolean(material.category_id)
+    );
+  }, [activeView, clientMaterials]);
+
+  const filteredMaterials = useMemo(() => {
+    if (!normalizedQuery) return viewMaterials;
+
+    return viewMaterials.filter((material) => {
       const searchable = [
         material.title,
         material.description ?? "",
@@ -181,18 +223,30 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
       return searchable.includes(normalizedQuery);
     });
-  }, [clientMaterials, normalizedQuery]);
+  }, [normalizedQuery, viewMaterials]);
 
   const visibleCategories = useMemo(() => {
-    return clientCategories.filter((category) => getCategoryGroups(category).includes(activeCategoryGroup));
-  }, [activeCategoryGroup, clientCategories]);
+    if (!activeCategoryGroup) return [];
+    const categoryMaterials = normalizedQuery ? filteredMaterials : viewMaterials;
+
+    return clientCategories.filter((category) =>
+      categoryMaterials.some((material) => isMaterialInCategoryGroup(material, category.id, activeCategoryGroup))
+    );
+  }, [activeCategoryGroup, clientCategories, filteredMaterials, normalizedQuery, viewMaterials]);
 
   const selectedCategoryName = selectedMaterial ? getMaterialCategoryNames(selectedMaterial, clientCategories) : "미분류";
-  const uncategorizedMaterials = filteredMaterials.filter((material) => !material.category_id && !material.secondary_category_id);
   const hasSearchResults = filteredMaterials.length > 0;
-  const shouldShowUncategorized = uncategorizedMaterials.length > 0;
-  const shouldShowCategoryEmpty = visibleCategories.length === 0 && !normalizedQuery && !shouldShowUncategorized && !isClientLoading;
-  const shouldShowBoard = (visibleCategories.length > 0 || shouldShowUncategorized) && (hasSearchResults || !normalizedQuery);
+  const shouldShowCategoryEmpty = Boolean(activeCategoryGroup) && clientCategories.length === 0 && !normalizedQuery && !isClientLoading;
+  const shouldShowViewEmpty = !isHome && !shouldShowCategoryEmpty && viewMaterials.length === 0 && !normalizedQuery && !isClientLoading;
+  const shouldShowGroupEmpty = Boolean(activeCategoryGroup) && viewMaterials.length > 0 && visibleCategories.length === 0 && !normalizedQuery && !isClientLoading;
+  const shouldShowBoard = (hasSearchResults || !normalizedQuery) && (
+    isHome
+      ? !normalizedQuery || filteredMaterials.length > 0
+      : activeLibrarySection
+        ? filteredMaterials.length > 0
+        : visibleCategories.length > 0
+  );
+  const customBanner = isHome ? null : getLibraryBannerSettings(activeView, viewSettings);
 
   return (
     <main
@@ -204,13 +258,13 @@ export default function Board({ settings, categories, materials, hasDataError = 
       }}
     >
       <section
-        className="border-b px-4 py-1 sm:px-8 sm:py-1.5"
+        className="border-b px-4 py-3 sm:px-8 sm:py-4"
         style={{ backgroundColor: viewSettings.header_background_color, borderColor: viewSettings.card_border_color }}
       >
-        <div className="mx-auto flex max-w-7xl flex-col gap-1.5 sm:gap-2">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-            <BoardHeader />
-            <div className="w-full lg:max-w-2xl">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
+            <BoardHeader onHome={goHome} />
+            <div className="w-full md:flex-1">
               <SearchBar
                 value={query}
                 onChange={setQuery}
@@ -220,25 +274,87 @@ export default function Board({ settings, categories, materials, hasDataError = 
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2" aria-label="카테고리 보기 선택">
-            {categoryGroupTabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveCategoryGroup(item.id)}
-                className="rounded-md border px-4 py-2 text-sm font-extrabold transition sm:text-base"
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="자료실 메뉴">
+            <a
+              href="https://www.pastelclay.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full border px-3 py-2 text-base font-extrabold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-[50px] sm:px-5 sm:py-2.5 sm:text-lg"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${shoppingAccent} 6%, ${viewSettings.card_background_color})`,
+                borderColor: viewSettings.card_border_color,
+                color: viewSettings.text_color
+              }}
+            >
+              <span
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8"
                 style={{
-                  backgroundColor: activeCategoryGroup === item.id ? viewSettings.button_color : viewSettings.card_background_color,
-                  borderColor: viewSettings.card_border_color,
-                  color: activeCategoryGroup === item.id ? "#ffffff" : viewSettings.text_color
+                  backgroundColor: `color-mix(in srgb, ${shoppingAccent} 18%, ${viewSettings.card_background_color})`,
+                  color: shoppingAccent
                 }}
+                aria-hidden="true"
               >
-                {item.label}
-              </button>
-            ))}
+                <ShoppingBag className="h-4 w-4 stroke-[2.5] sm:h-[18px] sm:w-[18px]" />
+              </span>
+              쇼핑
+            </a>
+            {categoryGroupTabs.map((item) => {
+              const isActive = activeView === item.id;
+              const Icon = item.icon;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveView(item.id)}
+                  className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full border px-3 py-2 text-base font-extrabold transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-[50px] sm:px-5 sm:py-2.5 sm:text-lg"
+                  style={{
+                    backgroundColor: isActive
+                      ? `color-mix(in srgb, ${item.accent} 13%, ${viewSettings.card_background_color})`
+                      : viewSettings.card_background_color,
+                    borderColor: isActive ? item.accent : viewSettings.card_border_color,
+                    color: isActive ? item.accent : viewSettings.text_color,
+                    boxShadow: isActive ? "0 4px 12px rgba(15, 23, 42, 0.10)" : "none"
+                  }}
+                  aria-pressed={isActive}
+                >
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${item.accent} ${isActive ? 23 : 14}%, ${viewSettings.card_background_color})`,
+                      color: item.accent
+                    }}
+                    aria-hidden="true"
+                  >
+                    <Icon className="h-4 w-4 stroke-[2.5] sm:h-[18px] sm:w-[18px]" />
+                  </span>
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
+
+      <LibrarySectionNav
+        activeSection={activeLibrarySection}
+        onChange={setActiveView}
+        textColor={viewSettings.text_color}
+        backgroundColor={viewSettings.header_background_color}
+        borderColor={viewSettings.card_border_color}
+      />
+
+      {!isHome && customBanner ? (
+        <LibraryBanner
+          view={activeView}
+          title={customBanner.title}
+          description={customBanner.description}
+          imageUrl={customBanner.imageUrl}
+          backgroundColor={viewSettings.banner_background_color}
+          textColor={customBanner.textColor}
+          borderColor={viewSettings.card_border_color}
+        />
+      ) : null}
 
       <section className="flex-1 px-4 py-5 sm:px-8 sm:py-6">
         {clientDataError ? (
@@ -274,28 +390,84 @@ export default function Board({ settings, categories, materials, hasDataError = 
           />
         ) : null}
 
+        {shouldShowViewEmpty ? (
+          <EmptyState
+            title={`${getLibraryViewLabel(activeView)}에 등록된 자료가 없습니다.`}
+            description={isHome || activeLibrarySection ? "관리자 페이지에서 자료의 노출 영역을 선택해주세요." : "관리자 페이지에서 자료의 카테고리를 선택해주세요."}
+            actionHref={isLoggedIn ? "/admin" : undefined}
+            actionLabel={isLoggedIn ? "관리자 페이지로 이동" : undefined}
+            buttonColor={viewSettings.button_color}
+            borderColor={viewSettings.card_border_color}
+          />
+        ) : null}
+
+        {shouldShowGroupEmpty ? (
+          <EmptyState
+            title={`${activeCategoryGroup === "month" ? "월별" : "주제별"}로 분류된 자료가 없습니다.`}
+            description="다른 분류 버튼을 선택하거나 관리자 페이지에서 카테고리를 지정해주세요."
+            buttonColor={viewSettings.button_color}
+            borderColor={viewSettings.card_border_color}
+          />
+        ) : null}
+
         {shouldShowBoard ? (
-          <div className="mx-auto grid min-h-[620px] max-w-7xl items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visibleCategories.map((category) => (
-              <CategoryColumn
-                key={category.id}
-                category={category}
-                materials={filteredMaterials.filter((material) => isMaterialInCategory(material, category.id))}
-                hasMaterials={clientMaterials.some((material) => isMaterialInCategory(material, category.id))}
-                settings={viewSettings}
-                onSelectMaterial={openMaterial}
-                onViewAll={() => setOverviewCategory({ category })}
-              />
-            ))}
-            {shouldShowUncategorized ? (
+          <div className="mx-auto min-h-[620px] max-w-7xl space-y-8">
+            {isHome
+              ? librarySections.map((section) => {
+                  const sectionMaterials = filteredMaterials
+                    .filter((material) => getMaterialLibrarySections(material).includes(section))
+                    .slice(0, 8);
+                  const sectionBanner = getLibraryBannerSettings(section, viewSettings);
+
+                  return (
+                    <CategoryColumn
+                      key={section}
+                      category={null}
+                      titleOverride={sectionBanner.title}
+                      descriptionOverride={sectionBanner.description}
+                      materials={sectionMaterials}
+                      hasMaterials
+                      settings={viewSettings}
+                      onSelectMaterial={openMaterial}
+                      onViewAll={() => setActiveView(section)}
+                    />
+                  );
+                })
+              : null}
+            {activeLibrarySection ? (
               <CategoryColumn
                 category={null}
-                materials={uncategorizedMaterials}
-                hasMaterials={clientMaterials.some((material) => !material.category_id && !material.secondary_category_id)}
+                titleOverride={`${getLibrarySectionLabel(activeLibrarySection)} 전체 자료`}
+                descriptionOverride={`${getLibrarySectionLabel(activeLibrarySection)}으로 등록된 모든 자료입니다.`}
+                materials={filteredMaterials}
                 settings={viewSettings}
                 onSelectMaterial={openMaterial}
-                onViewAll={() => setOverviewCategory({ category: null })}
               />
+            ) : null}
+            {activeCategoryGroup ? (
+              <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {visibleCategories.map((category) => {
+                  const categoryMaterials = filteredMaterials.filter((material) =>
+                    isMaterialInCategoryGroup(material, category.id, activeCategoryGroup)
+                  );
+                  const hasCategoryMaterials = viewMaterials.some((material) =>
+                    isMaterialInCategoryGroup(material, category.id, activeCategoryGroup)
+                  );
+
+                  return (
+                    <CategoryColumn
+                      key={category.id}
+                      category={category}
+                      materials={categoryMaterials}
+                      layout="column"
+                      hasMaterials={hasCategoryMaterials}
+                      settings={viewSettings}
+                      onSelectMaterial={openMaterial}
+                      onViewAll={() => setOverviewCategory(category)}
+                    />
+                  );
+                })}
+              </div>
             ) : null}
           </div>
         ) : null}
@@ -308,20 +480,18 @@ export default function Board({ settings, categories, materials, hasDataError = 
         <p className="text-sm font-medium opacity-70">ⓒ Pastel edu. All rights reserved.</p>
         <a
           href="/login"
-          className="mt-3 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-bold text-white shadow-sm"
+          className="mt-3 inline-flex items-center justify-center rounded-md px-5 py-2.5 text-base font-bold text-white shadow-sm"
           style={{ backgroundColor: viewSettings.button_color }}
         >
           관리자 로그인
         </a>
       </footer>
 
-      {overviewCategory ? (
+      {overviewCategory && activeCategoryGroup ? (
         <CategoryOverviewModal
-          category={overviewCategory.category}
+          category={overviewCategory}
           materials={clientMaterials.filter((material) =>
-            overviewCategory.category
-              ? isMaterialInCategory(material, overviewCategory.category.id)
-              : !material.category_id && !material.secondary_category_id
+            isMaterialInCategoryGroup(material, overviewCategory.id, activeCategoryGroup)
           )}
           settings={viewSettings}
           onSelectMaterial={openMaterial}
@@ -341,17 +511,74 @@ export default function Board({ settings, categories, materials, hasDataError = 
   );
 }
 
-const categoryGroupTabs: Array<{ id: CategoryGroup; label: string }> = [
-  { id: "subject", label: "주제별" },
-  { id: "month", label: "월별" }
+const shoppingAccent = "#168C7A";
+
+const categoryGroupTabs: Array<{ id: CategoryGroup; label: string; icon: LucideIcon; accent: string }> = [
+  { id: "month", label: "월별", icon: CalendarDays, accent: "#D97706" },
+  { id: "subject", label: "주제별", icon: Shapes, accent: "#7557B7" }
 ];
 
-function getCategoryGroups(category: Category) {
-  return category.category_groups?.length ? category.category_groups : (["subject"] as CategoryGroup[]);
+const librarySections: LibrarySection[] = ["kindergarten", "elementary", "senior"];
+
+function getMaterialLibrarySections(material: PptMaterial): LibrarySection[] {
+  return material.library_sections?.length ? material.library_sections : ["elementary"];
 }
 
-function isMaterialInCategory(material: PptMaterial, categoryId: string) {
-  return material.category_id === categoryId || material.secondary_category_id === categoryId;
+function getLibrarySectionLabel(section: LibrarySection) {
+  if (section === "kindergarten") return "유치원관";
+  if (section === "senior") return "시니어관";
+  return "초등관";
+}
+
+function getLibraryViewLabel(view: ActiveLibraryView) {
+  if (view === "home") return "메인 자료실";
+  if (view === "month") return "월별 수업자료";
+  if (view === "subject") return "주제별 수업자료";
+  return getLibrarySectionLabel(view);
+}
+
+function getLibraryBannerSettings(
+  view: LibraryView,
+  settings: Omit<SiteSettings, "id" | "created_at" | "updated_at">
+) {
+  if (view === "kindergarten") {
+    return {
+      title: resolveLibraryBannerTitle(view, settings.kindergarten_banner_title),
+      description: settings.kindergarten_banner_description ?? undefined,
+      imageUrl: resolveLibraryBannerImage(view, settings.kindergarten_banner_image_url),
+      textColor: libraryBannerDefaults[view].textColor
+    };
+  }
+  if (view === "elementary") {
+    return {
+      title: resolveLibraryBannerTitle(view, settings.elementary_banner_title),
+      description: settings.elementary_banner_description ?? undefined,
+      imageUrl: resolveLibraryBannerImage(view, settings.elementary_banner_image_url),
+      textColor: libraryBannerDefaults[view].textColor
+    };
+  }
+  if (view === "senior") {
+    return {
+      title: resolveLibraryBannerTitle(view, settings.senior_banner_title),
+      description: settings.senior_banner_description ?? undefined,
+      imageUrl: resolveLibraryBannerImage(view, settings.senior_banner_image_url),
+      textColor: libraryBannerDefaults[view].textColor
+    };
+  }
+
+  return { title: undefined, description: undefined, imageUrl: null, textColor: settings.banner_text_color };
+}
+
+function isCategoryGroup(view: ActiveLibraryView): view is CategoryGroup {
+  return view === "month" || view === "subject";
+}
+
+function isLibrarySection(view: ActiveLibraryView): view is LibrarySection {
+  return view === "kindergarten" || view === "elementary" || view === "senior";
+}
+
+function isMaterialInCategoryGroup(material: PptMaterial, categoryId: string, group: CategoryGroup) {
+  return group === "month" ? material.secondary_category_id === categoryId : material.category_id === categoryId;
 }
 
 function getMaterialCategoryNames(material: PptMaterial, categories: Category[]) {

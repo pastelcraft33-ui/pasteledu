@@ -73,7 +73,7 @@ export default function CategoryOverviewModal({ category, materials, settings, o
         </header>
 
         <div className="overflow-y-auto p-4 sm:p-6">
-          <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {materials.map((material) => (
               <MaterialCard
                 key={material.id}

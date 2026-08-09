@@ -20,7 +20,7 @@ export default function MaterialCard({ material, settings, onClick }: Props) {
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") onClick();
       }}
-      className="shrink-0 overflow-hidden border text-left transition hover:-translate-y-0.5"
+      className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border text-left transition hover:-translate-y-0.5"
       style={{
         backgroundColor: settings.card_background_color,
         borderColor: settings.card_border_color,
@@ -33,21 +33,21 @@ export default function MaterialCard({ material, settings, onClick }: Props) {
       ) : (
         <div className="flex aspect-video w-full items-center justify-center bg-gray-100 text-sm font-semibold text-gray-500 sm:text-base">썸네일 없음</div>
       )}
-      <div className="space-y-3 p-3 sm:p-4">
+      <div className="flex flex-1 flex-col gap-2.5 p-3">
         <div>
-          <h3 className="line-clamp-2 break-keep text-base font-extrabold leading-snug sm:text-lg">{material.title}</h3>
-          {material.description ? <p className="mt-1 line-clamp-3 break-keep text-sm leading-5 opacity-70 sm:text-base sm:leading-6">{material.description}</p> : null}
+          <h3 className="line-clamp-2 min-h-11 break-keep text-base font-extrabold leading-snug sm:min-h-12 sm:text-lg">{material.title}</h3>
+          {material.description ? <p className="mt-0.5 line-clamp-2 break-keep text-sm leading-5 opacity-70 sm:text-base sm:leading-5">{material.description}</p> : null}
         </div>
         {material.tags?.length ? (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex h-8 flex-wrap gap-1.5 overflow-hidden">
             {material.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 sm:px-2.5 sm:text-sm">
+              <span key={tag} className="h-fit rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 sm:px-2.5 sm:text-sm">
                 {tag}
               </span>
             ))}
           </div>
         ) : null}
-        <div className="flex flex-col gap-2 text-sm opacity-70 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="mt-auto flex min-h-10 flex-row items-end justify-between gap-2 text-sm opacity-70 sm:min-h-11 sm:gap-3">
           <time dateTime={material.created_at}>{formattedDate}</time>
           {material.is_downloadable && material.file_url ? (
             <a
@@ -55,7 +55,7 @@ export default function MaterialCard({ material, settings, onClick }: Props) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(event) => event.stopPropagation()}
-              className="w-fit rounded-md px-3 py-2 text-sm font-semibold text-white"
+              className="w-fit shrink-0 rounded-md px-3 py-2 text-sm font-bold text-white sm:px-3.5 sm:text-base"
               style={{ backgroundColor: settings.button_color }}
             >
               PPT 다운로드

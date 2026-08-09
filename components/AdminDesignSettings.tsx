@@ -13,6 +13,8 @@ type Props = {
 type DesignForm = {
   background_color: string;
   header_background_color: string;
+  banner_background_color: string;
+  banner_text_color: string;
   default_column_color: string;
   card_background_color: string;
   card_border_color: string;
@@ -26,6 +28,8 @@ type DesignForm = {
 const defaultForm: DesignForm = {
   background_color: "#ffffff",
   header_background_color: "#ffffff",
+  banner_background_color: "#fce7f3",
+  banner_text_color: "#db3f72",
   default_column_color: "#ffffff",
   card_background_color: "#ffffff",
   card_border_color: "#e5e7eb",
@@ -48,6 +52,8 @@ export default function AdminDesignSettings({ settings, onChanged, setMessage }:
     setForm({
       background_color: settings.background_color,
       header_background_color: settings.header_background_color,
+      banner_background_color: settings.banner_background_color ?? "#fce7f3",
+      banner_text_color: settings.banner_text_color ?? "#db3f72",
       default_column_color: settings.default_column_color,
       card_background_color: settings.card_background_color,
       card_border_color: settings.card_border_color,
@@ -72,6 +78,11 @@ export default function AdminDesignSettings({ settings, onChanged, setMessage }:
     setIsSaving(false);
 
     if (result.error) {
+      console.error("Design settings save failed", result.error);
+      if (result.error.code === "42703" && result.error.message.includes("banner_")) {
+        setMessage("배너 색상을 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-library-sections.sql을 먼저 실행해주세요.");
+        return;
+      }
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
       return;
     }
@@ -101,6 +112,16 @@ export default function AdminDesignSettings({ settings, onChanged, setMessage }:
             label="상단 영역 배경색"
             value={form.header_background_color}
             onChange={(value) => setForm({ ...form, header_background_color: value })}
+          />
+          <ColorInput
+            label="관 배너 배경색"
+            value={form.banner_background_color}
+            onChange={(value) => setForm({ ...form, banner_background_color: value })}
+          />
+          <ColorInput
+            label="관 배너 글자색"
+            value={form.banner_text_color}
+            onChange={(value) => setForm({ ...form, banner_text_color: value })}
           />
           <ColorInput
             label="기본 컬럼 배경색"

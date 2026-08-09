@@ -6,7 +6,7 @@ import AdminDownloadButton from "@/components/AdminDownloadButton";
 import { createDownloadFileName } from "@/lib/download-utils";
 import { createSafeStorageFileName, getFileExtension, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import type { AgeGroup, Category, CategoryGroup, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
+import type { AgeGroup, Category, CategoryGroup, LibrarySection, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
   categories: Category[];
@@ -22,6 +22,7 @@ const emptyForm: MaterialFormState = {
   description: "",
   tags: "",
   age_groups: [],
+  library_sections: ["elementary"],
   thumbnail_url: "",
   file_url: "",
   file_name: "",
@@ -31,6 +32,11 @@ const emptyForm: MaterialFormState = {
 
 const thumbnailExtensions = ["jpg", "jpeg", "png", "webp"];
 const ageGroupOptions: AgeGroup[] = ["유치부", "저학년", "고학년", "중등부", "고등부", "시니어"];
+const librarySectionOptions: Array<{ id: LibrarySection; label: string }> = [
+  { id: "kindergarten", label: "유치원관" },
+  { id: "elementary", label: "초등관" },
+  { id: "senior", label: "시니어관" }
+];
 
 export default function AdminMaterials({ categories, materials, onChanged, setMessage }: Props) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
@@ -78,6 +84,15 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       age_groups: current.age_groups.includes(ageGroup)
         ? current.age_groups.filter((item) => item !== ageGroup)
         : [...current.age_groups, ageGroup]
+    }));
+  }
+
+  function toggleLibrarySection(section: LibrarySection) {
+    setForm((current) => ({
+      ...current,
+      library_sections: current.library_sections.includes(section)
+        ? current.library_sections.filter((item) => item !== section)
+        : [...current.library_sections, section]
     }));
   }
 
@@ -136,6 +151,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       description: material.description ?? "",
       tags: (material.tags ?? []).join(", "),
       age_groups: material.age_groups ?? [],
+      library_sections: getMaterialLibrarySections(material),
       thumbnail_url: material.thumbnail_url ?? "",
       file_url: material.file_url ?? "",
       file_name: material.file_name ?? "",
@@ -151,6 +167,12 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
 
     if (!form.title.trim()) {
       setMessage("필수 항목을 입력해주세요.");
+      return;
+    }
+
+
+    if (form.library_sections.length === 0) {
+      setMessage("자료가 노출될 관을 한 개 이상 선택해주세요.");
       return;
     }
 
@@ -173,6 +195,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       description: form.description.trim() || null,
       tags: parseTagsInput(form.tags),
       age_groups: form.age_groups,
+      library_sections: form.library_sections,
       thumbnail_url: form.thumbnail_url || null,
       file_url: form.file_url || null,
       file_name: form.file_name || null,
@@ -188,8 +211,12 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
 
     if (result.error) {
       console.error("Material save failed", result.error);
-      if (result.error.code === "42703" && result.error.message.includes("age_groups")) {
+      if (isMissingDatabaseColumn(result.error, "age_groups")) {
         setMessage("연령 정보를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-age-groups.sql을 먼저 실행해주세요.");
+        return;
+      }
+      if (isMissingDatabaseColumn(result.error, "library_sections")) {
+        setMessage("자료 노출 영역을 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-library-sections.sql 전체를 실행해주세요.");
         return;
       }
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
@@ -322,6 +349,32 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
               <p className="mt-1 text-xs text-gray-500">카테고리 관리에서 “월별”로 체크된 카테고리만 표시됩니다.</p>
             </label>
             <Textarea label="설명" value={form.description} onChange={(value) => updateField("description", value)} />
+            <fieldset className="rounded-lg border p-4 lg:col-span-2">
+              <legend className="px-1 text-sm font-semibold">자료 노출 영역</legend>
+              <p className="mt-1 text-xs text-gray-500">이 자료를 보여줄 관을 한 개 이상 선택해주세요. 여러 관에 동시에 노출할 수 있습니다.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {librarySectionOptions.map((section) => {
+                  const isSelected = form.library_sections.includes(section.id);
+
+                  return (
+                    <label
+                      key={section.id}
+                      className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                        isSelected ? "border-gray-900 bg-gray-900 text-white" : "border-gray-300 bg-white text-gray-700"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleLibrarySection(section.id)}
+                        className="h-4 w-4 accent-gray-900"
+                      />
+                      {section.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
             <div className="space-y-3">
               <Input label="태그" value={form.tags} onChange={(value) => updateField("tags", value)} placeholder="봄, 만들기, 초등" />
               <p className="text-xs text-gray-500">쉼표로 구분해서 입력해주세요. 예: 봄, 만들기, 초등</p>
@@ -406,6 +459,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                 <th>제목</th>
                 <th>카테고리</th>
                 <th>태그</th>
+                <th>노출 영역</th>
                 <th>다운로드</th>
                 <th>정렬</th>
                 <th>등록일</th>
@@ -425,6 +479,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                   <td className="max-w-[240px] py-3 font-semibold">{material.title}</td>
                   <td>{formatMaterialCategories(material, categories)}</td>
                   <td className="max-w-[220px]">{(material.tags ?? []).join(", ") || "-"}</td>
+                  <td>{formatLibrarySections(material)}</td>
                   <td>{material.file_url ? (material.is_downloadable ? "가능" : "불가") : "파일 없음"}</td>
                   <td>{material.sort_order}</td>
                   <td>{formatDate(material.created_at)}</td>
@@ -456,14 +511,14 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
               ))}
               {materials.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-gray-500">
+                  <td colSpan={9} className="py-10 text-center text-gray-500">
                     등록된 PPT 자료가 없습니다. 새 자료를 추가해주세요.
                   </td>
                 </tr>
               ) : null}
               {materials.length > 0 && filteredMaterials.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-gray-500">
+                  <td colSpan={9} className="py-10 text-center text-gray-500">
                     조건에 맞는 자료가 없습니다.
                   </td>
                 </tr>
@@ -489,6 +544,26 @@ function formatMaterialCategories(material: PptMaterialWithCategory, categories:
   ].filter(Boolean);
 
   return names.length > 0 ? names.join(", ") : "미분류";
+}
+
+function getMaterialLibrarySections(material: PptMaterialWithCategory): LibrarySection[] {
+  return material.library_sections?.length ? material.library_sections : ["elementary"];
+}
+
+function isMissingDatabaseColumn(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null },
+  columnName: string
+) {
+  const errorText = [error.message, error.details, error.hint].filter(Boolean).join(" ").toLowerCase();
+  return ["42703", "PGRST200", "PGRST204"].includes(error.code ?? "") && errorText.includes(columnName.toLowerCase());
+}
+
+function formatLibrarySections(material: PptMaterialWithCategory) {
+  const sections = getMaterialLibrarySections(material);
+  return sections
+    .map((section) => librarySectionOptions.find((option) => option.id === section)?.label)
+    .filter(Boolean)
+    .join(", ");
 }
 
 function getCategoriesByGroup(categories: Category[], group: CategoryGroup, selectedId: string) {

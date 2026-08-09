@@ -19,6 +19,7 @@ create table if not exists public.ppt_materials (
   description text,
   tags text[] default '{}',
   age_groups text[] not null default '{}',
+  library_sections text[] not null default array['elementary'],
   thumbnail_url text,
   file_url text,
   file_name text,
@@ -52,6 +53,9 @@ add column if not exists secondary_category_id uuid references public.categories
 alter table public.ppt_materials
 add column if not exists age_groups text[];
 
+alter table public.ppt_materials
+add column if not exists library_sections text[];
+
 update public.ppt_materials
 set age_groups = '{}'
 where age_groups is null;
@@ -61,6 +65,16 @@ alter column age_groups set default '{}';
 
 alter table public.ppt_materials
 alter column age_groups set not null;
+
+update public.ppt_materials
+set library_sections = array['elementary']
+where library_sections is null or array_length(library_sections, 1) is null;
+
+alter table public.ppt_materials
+alter column library_sections set default array['elementary'];
+
+alter table public.ppt_materials
+alter column library_sections set not null;
 
 update public.categories
 set category_groups = array['subject']
@@ -75,6 +89,17 @@ create table if not exists public.site_settings (
   favicon_url text,
   background_color text default '#ffffff',
   header_background_color text default '#ffffff',
+  banner_background_color text default '#fce7f3',
+  banner_text_color text default '#db3f72',
+  kindergarten_banner_title text default '유치원관 수업자료',
+  kindergarten_banner_description text default '유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.',
+  kindergarten_banner_image_url text,
+  elementary_banner_title text default '초등관 수업자료',
+  elementary_banner_description text default '초등 수업에 바로 활용할 수 있는 자료를 모았습니다.',
+  elementary_banner_image_url text,
+  senior_banner_title text default '시니어관 수업자료',
+  senior_banner_description text default '시니어 학습과 활동을 위한 자료를 만나보세요.',
+  senior_banner_image_url text,
   default_column_color text default '#ffffff',
   card_background_color text default '#ffffff',
   card_border_color text default '#e5e7eb',
@@ -86,6 +111,31 @@ create table if not exists public.site_settings (
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
+
+alter table public.site_settings
+add column if not exists banner_background_color text default '#fce7f3';
+
+alter table public.site_settings
+add column if not exists banner_text_color text default '#db3f72';
+
+alter table public.site_settings
+add column if not exists kindergarten_banner_title text default '유치원관 수업자료';
+alter table public.site_settings
+add column if not exists kindergarten_banner_description text default '유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.';
+alter table public.site_settings
+add column if not exists kindergarten_banner_image_url text;
+alter table public.site_settings
+add column if not exists elementary_banner_title text default '초등관 수업자료';
+alter table public.site_settings
+add column if not exists elementary_banner_description text default '초등 수업에 바로 활용할 수 있는 자료를 모았습니다.';
+alter table public.site_settings
+add column if not exists elementary_banner_image_url text;
+alter table public.site_settings
+add column if not exists senior_banner_title text default '시니어관 수업자료';
+alter table public.site_settings
+add column if not exists senior_banner_description text default '시니어 학습과 활동을 위한 자료를 만나보세요.';
+alter table public.site_settings
+add column if not exists senior_banner_image_url text;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -144,6 +194,14 @@ insert into public.site_settings (
   header_description,
   background_color,
   header_background_color,
+  banner_background_color,
+  banner_text_color,
+  kindergarten_banner_title,
+  kindergarten_banner_description,
+  elementary_banner_title,
+  elementary_banner_description,
+  senior_banner_title,
+  senior_banner_description,
   default_column_color,
   card_background_color,
   card_border_color,
@@ -159,6 +217,14 @@ select
   '필요한 수업자료를 카테고리별로 확인하고 다운로드할 수 있습니다.',
   '#ffffff',
   '#ffffff',
+  '#fce7f3',
+  '#db3f72',
+  '유치원관 수업자료',
+  '유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.',
+  '초등관 수업자료',
+  '초등 수업에 바로 활용할 수 있는 자료를 모았습니다.',
+  '시니어관 수업자료',
+  '시니어 학습과 활동을 위한 자료를 만나보세요.',
   '#ffffff',
   '#ffffff',
   '#e5e7eb',

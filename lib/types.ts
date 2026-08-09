@@ -13,6 +13,10 @@ export type CategoryGroup = "subject" | "month";
 
 export type AgeGroup = "유치부" | "저학년" | "고학년" | "중등부" | "고등부" | "시니어";
 
+export type LibrarySection = "kindergarten" | "elementary" | "senior";
+
+export type LibraryView = CategoryGroup | LibrarySection;
+
 export type PptMaterial = {
   id: string;
   category_id: string | null;
@@ -21,6 +25,7 @@ export type PptMaterial = {
   description: string | null;
   tags: string[];
   age_groups: AgeGroup[];
+  library_sections: LibrarySection[];
   thumbnail_url: string | null;
   file_url: string | null;
   file_name: string | null;
@@ -50,6 +55,17 @@ export type SiteSettings = {
   favicon_url: string | null;
   background_color: string;
   header_background_color: string;
+  banner_background_color: string;
+  banner_text_color: string;
+  kindergarten_banner_title: string;
+  kindergarten_banner_description: string | null;
+  kindergarten_banner_image_url: string | null;
+  elementary_banner_title: string;
+  elementary_banner_description: string | null;
+  elementary_banner_image_url: string | null;
+  senior_banner_title: string;
+  senior_banner_description: string | null;
+  senior_banner_image_url: string | null;
   default_column_color: string;
   card_background_color: string;
   card_border_color: string;
@@ -76,6 +92,7 @@ export type MaterialFormState = {
   description: string;
   tags: string;
   age_groups: AgeGroup[];
+  library_sections: LibrarySection[];
   thumbnail_url: string;
   file_url: string;
   file_name: string;
