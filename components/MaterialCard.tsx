@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import type { PptMaterial, SiteSettings } from "@/lib/types";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
@@ -11,6 +14,13 @@ type Props = {
 
 export default function MaterialCard({ material, settings, onClick }: Props) {
   const formattedDate = formatDate(material.created_at);
+  const [thumbnailState, setThumbnailState] = useState<"loading" | "loaded" | "error">(
+    material.thumbnail_url ? "loading" : "error"
+  );
+
+  useEffect(() => {
+    setThumbnailState(material.thumbnail_url ? "loading" : "error");
+  }, [material.thumbnail_url]);
 
   return (
     <article
@@ -28,11 +38,26 @@ export default function MaterialCard({ material, settings, onClick }: Props) {
         boxShadow: settings.use_card_shadow ? "0 8px 24px rgba(15, 23, 42, 0.10)" : "none"
       }}
     >
-      {material.thumbnail_url ? (
-        <Image src={material.thumbnail_url} alt={`${material.title} 썸네일`} width={640} height={360} className="aspect-video w-full object-cover" />
-      ) : (
-        <div className="flex aspect-video w-full items-center justify-center bg-gray-100 text-sm font-semibold text-gray-500 sm:text-base">썸네일 없음</div>
-      )}
+      <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
+        {material.thumbnail_url && thumbnailState !== "error" ? (
+          <Image
+            key={material.thumbnail_url}
+            src={material.thumbnail_url}
+            alt={`${material.title} 썸네일`}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            unoptimized
+            onLoad={() => setThumbnailState("loaded")}
+            onError={() => setThumbnailState("error")}
+            className={`object-cover transition-opacity duration-200 ${thumbnailState === "loaded" ? "opacity-100" : "opacity-0"}`}
+          />
+        ) : null}
+        {thumbnailState !== "loaded" ? (
+          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm font-semibold text-gray-500 sm:text-base">
+            {thumbnailState === "loading" ? "대표 이미지 불러오는 중..." : "썸네일 없음"}
+          </div>
+        ) : null}
+      </div>
       <div className="flex flex-1 flex-col gap-2.5 p-3">
         <div>
           <h3 className="line-clamp-2 min-h-11 break-keep text-base font-extrabold leading-snug sm:min-h-12 sm:text-lg">{material.title}</h3>

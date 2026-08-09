@@ -76,6 +76,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
                         alt={`${material.title} 썸네일`}
                         width={640}
                         height={360}
+                        unoptimized
                         className="mx-auto mb-5 aspect-video w-full max-w-sm rounded-md object-cover opacity-80"
                       />
                     ) : null}
@@ -91,7 +92,14 @@ export default function MaterialModal({ material, categoryName, settings, onClos
           ) : (
             <div className="mx-4 flex w-full max-w-4xl flex-col items-center justify-center rounded-lg bg-white p-8 text-center">
               {material.thumbnail_url ? (
-                <Image src={material.thumbnail_url} alt={`${material.title} 썸네일`} width={1200} height={675} className="aspect-video w-full rounded-md object-cover" />
+                <Image
+                  src={material.thumbnail_url}
+                  alt={`${material.title} 썸네일`}
+                  width={1200}
+                  height={675}
+                  unoptimized
+                  className="aspect-video w-full rounded-md object-cover"
+                />
               ) : (
                 <div className="flex aspect-video w-full items-center justify-center rounded-md bg-gray-100 text-sm text-gray-500">PPT 파일이 없습니다.</div>
               )}
