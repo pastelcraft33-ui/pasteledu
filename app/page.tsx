@@ -1,37 +1,10 @@
 import Board from "@/components/Board";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Category, PptMaterial, SiteSettings } from "@/lib/types";
-import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const supabase = createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("site_settings")
-    .select("site_name, header_description, favicon_url")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error && process.env.NODE_ENV === "development") {
-    console.error("Failed to load site metadata from Supabase:", error);
-  }
-
-  const faviconUrl = data?.favicon_url || "/pastel-crown-p-favicon.png";
-
-  return {
-    title: data?.site_name ?? "Pastel PPT Library",
-    description: data?.header_description ?? "Customizable PPT resource board",
-    icons: {
-      icon: faviconUrl,
-      shortcut: faviconUrl,
-      apple: faviconUrl
-    }
-  };
-}
 
 export default async function HomePage() {
   const supabase = createServerSupabaseClient();

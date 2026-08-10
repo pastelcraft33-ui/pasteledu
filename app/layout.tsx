@@ -1,15 +1,32 @@
 import type { Metadata } from "next";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Pastel PPT Library",
-  description: "Customizable PPT resource board",
-  icons: {
-    icon: "/pastel-crown-p-favicon.png",
-    shortcut: "/pastel-crown-p-favicon.png",
-    apple: "/pastel-crown-p-favicon.png"
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("site_name, header_description, favicon_url")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error && process.env.NODE_ENV === "development") {
+    console.error("Failed to load site metadata from Supabase:", error);
   }
-};
+
+  const faviconUrl = data?.favicon_url || "/pastel-crown-p-favicon.png";
+
+  return {
+    title: data?.site_name ?? "파스텔에듀",
+    description: data?.header_description ?? "파스텔에듀 수업자료실",
+    icons: {
+      icon: faviconUrl,
+      shortcut: faviconUrl,
+      apple: faviconUrl
+    }
+  };
+}
 
 export default function RootLayout({
   children
