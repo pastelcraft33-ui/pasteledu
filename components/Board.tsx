@@ -34,6 +34,8 @@ const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> =
   header_background_color: "#ffffff",
   banner_background_color: "#fce7f3",
   banner_text_color: "#db3f72",
+  month_banner_image_url: null,
+  subject_banner_image_url: null,
   kindergarten_banner_title: libraryBannerDefaults.kindergarten.title,
   kindergarten_banner_description: "유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.",
   kindergarten_banner_image_url: libraryBannerDefaults.kindergarten.imageUrl,
@@ -536,6 +538,22 @@ function getLibraryBannerSettings(
   view: LibraryView,
   settings: Omit<SiteSettings, "id" | "created_at" | "updated_at">
 ) {
+  if (view === "month") {
+    return {
+      title: undefined,
+      description: undefined,
+      imageUrl: settings.month_banner_image_url,
+      textColor: settings.banner_text_color
+    };
+  }
+  if (view === "subject") {
+    return {
+      title: undefined,
+      description: undefined,
+      imageUrl: settings.subject_banner_image_url,
+      textColor: settings.banner_text_color
+    };
+  }
   if (view === "kindergarten") {
     return {
       title: resolveLibraryBannerTitle(view, settings.kindergarten_banner_title),

@@ -103,6 +103,8 @@ create table if not exists public.site_settings (
   header_background_color text default '#ffffff',
   banner_background_color text default '#fce7f3',
   banner_text_color text default '#db3f72',
+  month_banner_image_url text,
+  subject_banner_image_url text,
   kindergarten_banner_title text default '유치원관 수업자료',
   kindergarten_banner_description text default '유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.',
   kindergarten_banner_image_url text,
@@ -129,6 +131,12 @@ add column if not exists banner_background_color text default '#fce7f3';
 
 alter table public.site_settings
 add column if not exists banner_text_color text default '#db3f72';
+
+alter table public.site_settings
+add column if not exists month_banner_image_url text;
+
+alter table public.site_settings
+add column if not exists subject_banner_image_url text;
 
 alter table public.site_settings
 add column if not exists kindergarten_banner_title text default '유치원관 수업자료';

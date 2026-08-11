@@ -82,6 +82,7 @@ Supabase 환경변수가 설정되지 않았습니다. .env.local 또는 Vercel 
 - `ppt_materials.secondary_category_id`는 PPT 자료를 두 번째 카테고리에도 표시하기 위해 사용합니다.
 - `ppt_material_events`는 메인 자료실에서 PPT 클릭횟수와 미리보기 체류시간을 저장합니다.
 - 기존 Supabase 프로젝트에 배포 후에는 최신 `supabase/schema.sql`을 SQL Editor에서 다시 실행해야 새 컬럼이 추가됩니다.
+- 월별·주제별 배너 기능만 추가하는 경우에는 `supabase/add-all-library-banners.sql` 전체를 SQL Editor에서 실행해도 됩니다.
 
 ## Storage 버킷 확인 방법
 

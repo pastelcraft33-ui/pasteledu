@@ -58,13 +58,15 @@ export type SiteSettings = {
   header_background_color: string;
   banner_background_color: string;
   banner_text_color: string;
-  kindergarten_banner_title: string;
+  month_banner_image_url: string | null;
+  subject_banner_image_url: string | null;
+  kindergarten_banner_title: string | null;
   kindergarten_banner_description: string | null;
   kindergarten_banner_image_url: string | null;
-  elementary_banner_title: string;
+  elementary_banner_title: string | null;
   elementary_banner_description: string | null;
   elementary_banner_image_url: string | null;
-  senior_banner_title: string;
+  senior_banner_title: string | null;
   senior_banner_description: string | null;
   senior_banner_image_url: string | null;
   default_column_color: string;

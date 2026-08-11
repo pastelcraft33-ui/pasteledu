@@ -39,19 +39,28 @@ export default function LibraryBanner({ view, title, description, imageUrl, back
     description: description?.trim() || content[view].description
   };
 
+  if (imageUrl) {
+    return (
+      <section className="overflow-hidden border-b" style={{ backgroundColor, borderColor }} aria-label={`${content[view].title} 배너`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={`${content[view].title} 배너`}
+          width={3360}
+          height={350}
+          className="block w-full object-cover object-center"
+          style={{ height: "clamp(96px, 10.42vw, 350px)" }}
+        />
+      </section>
+    );
+  }
+
   return (
     <section
       className="relative isolate min-h-40 overflow-hidden border-b px-4 py-7 text-center sm:min-h-44 sm:px-8 sm:py-9"
       style={{ backgroundColor, borderColor, color: textColor }}
       aria-labelledby="library-banner-title"
     >
-      {imageUrl ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
-          <div className="absolute inset-0 bg-white/10" aria-hidden="true" />
-        </>
-      ) : null}
       <div className="relative mx-auto max-w-7xl">
         <h1
           id="library-banner-title"
