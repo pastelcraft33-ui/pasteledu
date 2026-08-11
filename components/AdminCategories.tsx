@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { createSafeStorageFileName, isAllowedImageFile } from "@/lib/file-utils";
 import type { Category, CategoryFormState, CategoryGroup, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 const emptyForm: CategoryFormState = {
   name: "",
   description: "",
+  card_image_url: "",
   column_color: "",
   category_groups: ["subject"],
   sort_order: 0
@@ -24,6 +26,8 @@ export default function AdminCategories({ categories, materials, onChanged, setM
   const [form, setForm] = useState<CategoryFormState>(emptyForm);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   const materialCounts = useMemo(() => {
     return materials.reduce<Record<string, number>>((acc, material) => {
@@ -37,12 +41,16 @@ export default function AdminCategories({ categories, materials, onChanged, setM
 
   function openCreateForm() {
     setForm(emptyForm);
+    setImageFile(null);
+    setImagePreview("");
     setIsFormOpen(true);
     setMessage("");
   }
 
   function closeForm() {
     setForm(emptyForm);
+    setImageFile(null);
+    setImagePreview("");
     setIsFormOpen(false);
   }
 
@@ -51,11 +59,37 @@ export default function AdminCategories({ categories, materials, onChanged, setM
       id: category.id,
       name: category.name,
       description: category.description ?? "",
+      card_image_url: category.card_image_url ?? "",
       column_color: category.column_color ?? "",
       category_groups: getCategoryGroups(category),
       sort_order: category.sort_order
     });
+    setImageFile(null);
+    setImagePreview(category.card_image_url ?? "");
     setIsFormOpen(true);
+  }
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+
+    if (!file) return;
+    if (!isAllowedImageFile(file)) {
+      setMessage("카테고리 이미지는 JPG, PNG, WEBP 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsDataURL(file);
+    setMessage("");
+  }
+
+  function removeImage() {
+    setImageFile(null);
+    setImagePreview("");
+    setForm((current) => ({ ...current, card_image_url: "" }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -66,9 +100,26 @@ export default function AdminCategories({ categories, materials, onChanged, setM
     }
 
     setIsSaving(true);
+    let cardImageUrl = form.card_image_url.trim() || null;
+
+    if (imageFile) {
+      const storagePath = `categories/${createSafeStorageFileName(imageFile.name)}`;
+      const { error: uploadError } = await supabase.storage.from("site-assets").upload(storagePath, imageFile, { upsert: false });
+
+      if (uploadError) {
+        console.error("Category image upload error", uploadError);
+        setIsSaving(false);
+        setMessage("카테고리 이미지 업로드에 실패했습니다. Storage 권한을 확인해주세요.");
+        return;
+      }
+
+      cardImageUrl = supabase.storage.from("site-assets").getPublicUrl(storagePath).data.publicUrl;
+    }
+
     const payload = {
       name: form.name.trim(),
       description: form.description.trim() || null,
+      card_image_url: cardImageUrl,
       column_color: form.column_color.trim() || null,
       category_groups: form.category_groups.length > 0 ? form.category_groups : ["subject"],
       sort_order: Number(form.sort_order)
@@ -106,7 +157,7 @@ export default function AdminCategories({ categories, materials, onChanged, setM
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">카테고리 관리</h2>
-            <p className="mt-1 text-sm text-gray-500">카테고리 컬럼 이름, 보기 그룹, 설명, 색상, 정렬 순서를 관리합니다.</p>
+            <p className="mt-1 text-sm text-gray-500">카테고리 이름, 박스 문구와 이미지, 보기 그룹, 색상, 정렬 순서를 관리합니다.</p>
           </div>
           <button type="button" onClick={openCreateForm} className="rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white">
             새 카테고리 추가
@@ -129,7 +180,32 @@ export default function AdminCategories({ categories, materials, onChanged, setM
               value={form.category_groups}
               onChange={(value) => setForm({ ...form, category_groups: value })}
             />
-            <Textarea label="설명" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
+            <Textarea label="카테고리 박스 문구" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
+            <div className="sm:col-span-2">
+              <span className="text-sm font-semibold">카테고리 박스 이미지</span>
+              <p className="mt-1 text-xs text-gray-500">JPG, PNG, WEBP 이미지를 등록할 수 있습니다. 등록하지 않으면 주제에 맞는 기본 아이콘이 표시됩니다.</p>
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border bg-gray-50">
+                  {imagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- 관리자 로컬 미리보기와 Supabase 동적 URL을 함께 표시합니다.
+                    <img src={imagePreview} alt="카테고리 박스 이미지 미리보기" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-center text-xs text-gray-400">기본 아이콘<br />사용</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <label className="cursor-pointer rounded-md border bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50">
+                    {imagePreview ? "이미지 교체" : "이미지 선택"}
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={handleImageChange} className="sr-only" />
+                  </label>
+                  {imagePreview ? (
+                    <button type="button" onClick={removeImage} className="rounded-md border px-4 py-2 text-sm font-semibold text-red-700">
+                      이미지 삭제
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
             <Input
               label="정렬 순서"
               type="number"
@@ -156,6 +232,7 @@ export default function AdminCategories({ categories, materials, onChanged, setM
               <tr className="border-b text-gray-600">
                 <th className="py-2">카테고리명</th>
                 <th>보기 그룹</th>
+                <th>박스 이미지</th>
                 <th>설명</th>
                 <th>컬럼 색상</th>
                 <th>정렬 순서</th>
@@ -168,6 +245,16 @@ export default function AdminCategories({ categories, materials, onChanged, setM
                 <tr key={category.id} className="border-b">
                   <td className="py-3 font-semibold">{category.name}</td>
                   <td>{formatCategoryGroups(category)}</td>
+                  <td>
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-md border bg-gray-50">
+                      {category.card_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- 관리자가 등록한 Supabase 동적 URL을 표시합니다.
+                        <img src={category.card_image_url} alt={`${category.name} 카테고리 이미지`} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] text-gray-400">기본</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="max-w-[260px]">{category.description || "-"}</td>
                   <td>
                     <span className="inline-flex items-center gap-2">
@@ -189,7 +276,7 @@ export default function AdminCategories({ categories, materials, onChanged, setM
               ))}
               {categories.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-gray-500">
+                  <td colSpan={8} className="py-10 text-center text-gray-500">
                     등록된 카테고리가 없습니다. 새 카테고리를 추가해주세요.
                   </td>
                 </tr>

@@ -4,6 +4,7 @@ create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
+  card_image_url text,
   column_color text,
   category_groups text[] not null default array['subject'],
   sort_order integer default 0,
@@ -54,6 +55,9 @@ on public.ppt_material_events (created_at desc);
 
 alter table public.categories
 add column if not exists category_groups text[] not null default array['subject'];
+
+alter table public.categories
+add column if not exists card_image_url text;
 
 alter table public.ppt_materials
 add column if not exists secondary_category_id uuid references public.categories(id) on delete set null;

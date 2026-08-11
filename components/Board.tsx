@@ -10,6 +10,7 @@ import LibraryBanner from "@/components/LibraryBanner";
 import LibrarySectionNav from "@/components/LibrarySectionNav";
 import MaterialModal from "@/components/MaterialModal";
 import SearchBar from "@/components/SearchBar";
+import CategoryCardGrid from "@/components/CategoryCardGrid";
 import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, CategoryGroup, LibrarySection, LibraryView, MaterialEventType, PptMaterial, SiteSettings } from "@/lib/types";
@@ -231,17 +232,19 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
   const visibleCategories = useMemo(() => {
     if (!activeCategoryGroup) return [];
-    const categoryMaterials = normalizedQuery ? filteredMaterials : viewMaterials;
+    const groupedCategories = clientCategories.filter((category) => getCategoryGroups(category).includes(activeCategoryGroup));
 
-    return clientCategories.filter((category) =>
-      categoryMaterials.some((material) => isMaterialInCategoryGroup(material, category.id, activeCategoryGroup))
+    if (!normalizedQuery) return groupedCategories;
+
+    return groupedCategories.filter((category) =>
+      filteredMaterials.some((material) => isMaterialInCategoryGroup(material, category.id, activeCategoryGroup))
     );
-  }, [activeCategoryGroup, clientCategories, filteredMaterials, normalizedQuery, viewMaterials]);
+  }, [activeCategoryGroup, clientCategories, filteredMaterials, normalizedQuery]);
 
   const selectedCategoryName = selectedMaterial ? getMaterialCategoryNames(selectedMaterial, clientCategories) : "미분류";
   const hasSearchResults = filteredMaterials.length > 0;
   const shouldShowCategoryEmpty = Boolean(activeCategoryGroup) && clientCategories.length === 0 && !normalizedQuery && !isClientLoading;
-  const shouldShowViewEmpty = !isHome && !shouldShowCategoryEmpty && viewMaterials.length === 0 && !normalizedQuery && !isClientLoading;
+  const shouldShowViewEmpty = !isHome && !activeCategoryGroup && !shouldShowCategoryEmpty && viewMaterials.length === 0 && !normalizedQuery && !isClientLoading;
   const shouldShowGroupEmpty = Boolean(activeCategoryGroup) && viewMaterials.length > 0 && visibleCategories.length === 0 && !normalizedQuery && !isClientLoading;
   const shouldShowBoard = (hasSearchResults || !normalizedQuery) && (
     isHome
@@ -451,30 +454,13 @@ export default function Board({ settings, categories, materials, hasDataError = 
               />
             ) : null}
             {activeCategoryGroup ? (
-              <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {visibleCategories.map((category) => {
-                  const categoryMaterials = filteredMaterials.filter((material) =>
-                    isMaterialInCategoryGroup(material, category.id, activeCategoryGroup)
-                  );
-                  const hasCategoryMaterials = viewMaterials.some((material) =>
-                    isMaterialInCategoryGroup(material, category.id, activeCategoryGroup)
-                  );
-
-                  return (
-                    <CategoryColumn
-                      key={category.id}
-                      category={category}
-                      materials={categoryMaterials}
-                      layout="column"
-                      hasMaterials={hasCategoryMaterials}
-                      settings={viewSettings}
-                      onSelectMaterial={openMaterial}
-                      onDownloadMaterial={recordDownload}
-                      onViewAll={() => setOverviewCategory(category)}
-                    />
-                  );
-                })}
-              </div>
+              <CategoryCardGrid
+                categories={visibleCategories}
+                materials={normalizedQuery ? filteredMaterials : viewMaterials}
+                group={activeCategoryGroup}
+                settings={viewSettings}
+                onSelectCategory={setOverviewCategory}
+              />
             ) : null}
           </div>
         ) : null}
@@ -588,6 +574,10 @@ function isLibrarySection(view: ActiveLibraryView): view is LibrarySection {
 
 function isMaterialInCategoryGroup(material: PptMaterial, categoryId: string, group: CategoryGroup) {
   return group === "month" ? material.secondary_category_id === categoryId : material.category_id === categoryId;
+}
+
+function getCategoryGroups(category: Category): CategoryGroup[] {
+  return category.category_groups?.length ? category.category_groups : ["subject"];
 }
 
 function getMaterialCategoryNames(material: PptMaterial, categories: Category[]) {

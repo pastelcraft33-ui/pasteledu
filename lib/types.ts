@@ -2,6 +2,7 @@ export type Category = {
   id: string;
   name: string;
   description: string | null;
+  card_image_url: string | null;
   column_color: string | null;
   category_groups: CategoryGroup[];
   sort_order: number;
@@ -104,6 +105,7 @@ export type CategoryFormState = {
   id?: string;
   name: string;
   description: string;
+  card_image_url: string;
   column_color: string;
   category_groups: CategoryGroup[];
   sort_order: number;
