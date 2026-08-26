@@ -1,5 +1,6 @@
 const allowedPptExtensions = ["ppt", "pptx"];
 const allowedImageExtensions = ["jpg", "jpeg", "png", "webp"];
+const allowedWorksheetExtensions = ["pdf", ...allowedImageExtensions];
 
 export function getFileExtension(filename: string) {
   return filename.split(".").pop()?.toLowerCase() ?? "";
@@ -11,6 +12,10 @@ export function isAllowedPptFile(file: File) {
 
 export function isAllowedImageFile(file: File) {
   return allowedImageExtensions.includes(getFileExtension(file.name));
+}
+
+export function isAllowedWorksheetFile(file: File) {
+  return allowedWorksheetExtensions.includes(getFileExtension(file.name));
 }
 
 export function createSafeStorageFileName(filename: string) {

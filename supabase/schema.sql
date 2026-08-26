@@ -24,6 +24,8 @@ create table if not exists public.ppt_materials (
   thumbnail_url text,
   file_url text,
   file_name text,
+  worksheet_url text,
+  worksheet_file_name text,
   is_downloadable boolean default true,
   sort_order integer default 0,
   created_at timestamp with time zone default now(),
@@ -67,6 +69,12 @@ add column if not exists age_groups text[];
 
 alter table public.ppt_materials
 add column if not exists library_sections text[];
+
+alter table public.ppt_materials
+add column if not exists worksheet_url text;
+
+alter table public.ppt_materials
+add column if not exists worksheet_file_name text;
 
 update public.ppt_materials
 set age_groups = '{}'
@@ -312,12 +320,13 @@ using (auth.role() = 'authenticated')
 with check (auth.role() = 'authenticated');
 
 -- Storage 버킷은 Dashboard에서 직접 만들어도 됩니다.
--- SQL로 실행할 경우 아래 구문이 ppt-files, thumbnails, site-assets 버킷을 public으로 생성 또는 갱신합니다.
+-- SQL로 실행할 경우 아래 구문이 ppt-files, thumbnails, site-assets, worksheet-files 버킷을 public으로 생성 또는 갱신합니다.
 insert into storage.buckets (id, name, public)
 values
   ('ppt-files', 'ppt-files', true),
   ('thumbnails', 'thumbnails', true),
-  ('site-assets', 'site-assets', true)
+  ('site-assets', 'site-assets', true),
+  ('worksheet-files', 'worksheet-files', true)
 on conflict (id) do update set public = excluded.public;
 
 drop policy if exists "Public can read ppt files" on storage.objects;
@@ -338,6 +347,12 @@ on storage.objects for select
 to anon, authenticated
 using (bucket_id = 'site-assets');
 
+drop policy if exists "Public can read worksheet files" on storage.objects;
+create policy "Public can read worksheet files"
+on storage.objects for select
+to anon, authenticated
+using (bucket_id = 'worksheet-files');
+
 drop policy if exists "Authenticated can upload ppt files" on storage.objects;
 create policy "Authenticated can upload ppt files"
 on storage.objects for insert
@@ -356,15 +371,21 @@ on storage.objects for insert
 to authenticated
 with check (bucket_id = 'site-assets' and auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated can upload worksheet files" on storage.objects;
+create policy "Authenticated can upload worksheet files"
+on storage.objects for insert
+to authenticated
+with check (bucket_id = 'worksheet-files' and auth.role() = 'authenticated');
+
 drop policy if exists "Authenticated can update storage objects" on storage.objects;
 create policy "Authenticated can update storage objects"
 on storage.objects for update
 to authenticated
-using (bucket_id in ('ppt-files', 'thumbnails', 'site-assets') and auth.role() = 'authenticated')
-with check (bucket_id in ('ppt-files', 'thumbnails', 'site-assets') and auth.role() = 'authenticated');
+using (bucket_id in ('ppt-files', 'thumbnails', 'site-assets', 'worksheet-files') and auth.role() = 'authenticated')
+with check (bucket_id in ('ppt-files', 'thumbnails', 'site-assets', 'worksheet-files') and auth.role() = 'authenticated');
 
 drop policy if exists "Authenticated can delete storage objects" on storage.objects;
 create policy "Authenticated can delete storage objects"
 on storage.objects for delete
 to authenticated
-using (bucket_id in ('ppt-files', 'thumbnails', 'site-assets') and auth.role() = 'authenticated');
+using (bucket_id in ('ppt-files', 'thumbnails', 'site-assets', 'worksheet-files') and auth.role() = 'authenticated');

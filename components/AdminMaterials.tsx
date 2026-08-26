@@ -4,7 +4,13 @@ import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import Image from "next/image";
 import AdminDownloadButton from "@/components/AdminDownloadButton";
 import { createDownloadFileName } from "@/lib/download-utils";
-import { createSafeStorageFileName, getFileExtension, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
+import {
+  createSafeStorageFileName,
+  getFileExtension,
+  isAllowedPptFile,
+  isAllowedWorksheetFile,
+  parseTagsInput
+} from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AgeGroup, Category, CategoryGroup, LibrarySection, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
 
@@ -26,6 +32,8 @@ const emptyForm: MaterialFormState = {
   thumbnail_url: "",
   file_url: "",
   file_name: "",
+  worksheet_url: "",
+  worksheet_file_name: "",
   is_downloadable: true,
   sort_order: 0
 };
@@ -107,7 +115,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setIsFormOpen(false);
   }
 
-  async function uploadFile(event: ChangeEvent<HTMLInputElement>, bucket: "ppt-files" | "thumbnails") {
+  async function uploadFile(event: ChangeEvent<HTMLInputElement>, bucket: MaterialStorageBucket) {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -138,9 +146,12 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     if (bucket === "ppt-files") {
       setForm((current) => ({ ...current, file_url: data.publicUrl, file_name: file.name }));
       setMessage("PPT 파일 업로드가 완료되었습니다.");
-    } else {
+    } else if (bucket === "thumbnails") {
       setForm((current) => ({ ...current, thumbnail_url: data.publicUrl }));
       setMessage("썸네일 이미지 업로드가 완료되었습니다.");
+    } else {
+      setForm((current) => ({ ...current, worksheet_url: data.publicUrl, worksheet_file_name: file.name }));
+      setMessage("활동지 파일 업로드가 완료되었습니다.");
     }
     event.target.value = "";
   }
@@ -158,6 +169,8 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       thumbnail_url: material.thumbnail_url ?? "",
       file_url: material.file_url ?? "",
       file_name: material.file_name ?? "",
+      worksheet_url: material.worksheet_url ?? "",
+      worksheet_file_name: material.worksheet_file_name ?? "",
       is_downloadable: material.is_downloadable,
       sort_order: material.sort_order
     });
@@ -202,6 +215,8 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       thumbnail_url: form.thumbnail_url || null,
       file_url: form.file_url || null,
       file_name: form.file_name || null,
+      worksheet_url: form.worksheet_url || null,
+      worksheet_file_name: form.worksheet_file_name || null,
       is_downloadable: form.is_downloadable,
       sort_order: Number(form.sort_order)
     };
@@ -220,6 +235,10 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       }
       if (isMissingDatabaseColumn(result.error, "library_sections")) {
         setMessage("자료 노출 영역을 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-library-sections.sql 전체를 실행해주세요.");
+        return;
+      }
+      if (isMissingDatabaseColumn(result.error, "worksheet_")) {
+        setMessage("활동지 정보를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-worksheet-files.sql 전체를 실행해주세요.");
         return;
       }
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
@@ -241,17 +260,18 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       return;
     }
 
-    const storageDeleteErrors = await removeMaterialFiles(material.thumbnail_url, material.file_url);
+    const storageDeleteErrors = await removeMaterialFiles(material.thumbnail_url, material.file_url, material.worksheet_url);
     setMessage(storageDeleteErrors ? "자료가 삭제되었습니다. 일부 Storage 파일은 삭제하지 못했습니다." : "자료가 삭제되었습니다.");
     if (form.id === material.id) closeForm();
     await onChanged();
   }
 
-  async function removeMaterialFiles(thumbnailUrl: string | null, fileUrl: string | null) {
+  async function removeMaterialFiles(thumbnailUrl: string | null, fileUrl: string | null, worksheetUrl: string | null) {
     const targets = [
       getStorageObject("thumbnails", thumbnailUrl),
-      getStorageObject("ppt-files", fileUrl)
-    ].filter((target): target is { bucket: "ppt-files" | "thumbnails"; path: string } => Boolean(target));
+      getStorageObject("ppt-files", fileUrl),
+      getStorageObject("worksheet-files", worksheetUrl)
+    ].filter((target): target is { bucket: MaterialStorageBucket; path: string } => Boolean(target));
 
     if (targets.length === 0) return false;
 
@@ -436,6 +456,14 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
               currentUrl={form.file_url}
               currentLabel={`현재 PPT 파일${form.file_name ? `: ${form.file_name}` : ""}`}
             />
+            <FileField
+              label="활동지 파일"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={(event) => uploadFile(event, "worksheet-files")}
+              currentUrl={form.worksheet_url}
+              currentLabel={`현재 활동지${form.worksheet_file_name ? `: ${form.worksheet_file_name}` : ""}`}
+              helpText="PDF, JPG, PNG, WEBP 파일을 업로드할 수 있습니다. 새 파일을 선택하지 않으면 기존 활동지가 유지됩니다."
+            />
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <button
@@ -501,6 +529,13 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
                         label="이미지 다운로드"
                         setMessage={setMessage}
                         className="text-emerald-700"
+                      />
+                      <AdminDownloadButton
+                        url={material.worksheet_url}
+                        fileName={material.worksheet_file_name || createDownloadFileName(`${material.title}-활동지`, material.worksheet_url || "", "pdf")}
+                        label="활동지 다운로드"
+                        setMessage={setMessage}
+                        className="text-violet-700"
                       />
                       <button type="button" onClick={() => editMaterial(material)} className="rounded-md border px-3 py-1">
                         수정
@@ -581,15 +616,25 @@ function getCategoryGroups(category: Category): CategoryGroup[] {
   return category.category_groups?.length ? category.category_groups : ["subject"];
 }
 
-function validateFile(file: File, bucket: "ppt-files" | "thumbnails") {
+type MaterialStorageBucket = "ppt-files" | "thumbnails" | "worksheet-files";
+
+function validateFile(file: File, bucket: MaterialStorageBucket) {
   const extension = getFileExtension(file.name);
-  const allowed = bucket === "ppt-files" ? isAllowedPptFile(file) : thumbnailExtensions.includes(extension);
-  const label = bucket === "ppt-files" ? "PPT 파일은 PPT 또는 PPTX 파일만 업로드할 수 있습니다." : "썸네일은 JPG, PNG, WEBP 파일만 업로드할 수 있습니다.";
+  const allowed = bucket === "ppt-files"
+    ? isAllowedPptFile(file)
+    : bucket === "worksheet-files"
+      ? isAllowedWorksheetFile(file)
+      : thumbnailExtensions.includes(extension);
+  const label = bucket === "ppt-files"
+    ? "PPT 파일은 PPT 또는 PPTX 파일만 업로드할 수 있습니다."
+    : bucket === "worksheet-files"
+      ? "활동지는 PDF, JPG, PNG, WEBP 파일만 업로드할 수 있습니다."
+      : "썸네일은 JPG, PNG, WEBP 파일만 업로드할 수 있습니다.";
 
   return allowed ? { isValid: true, message: "" } : { isValid: false, message: label };
 }
 
-function getStorageObject(bucket: "ppt-files" | "thumbnails", publicUrl: string | null) {
+function getStorageObject(bucket: MaterialStorageBucket, publicUrl: string | null) {
   if (!publicUrl) return null;
   const marker = `/storage/v1/object/public/${bucket}/`;
   const [, path] = publicUrl.split(marker);
@@ -607,18 +652,21 @@ function FileField({
   accept,
   onChange,
   currentUrl,
-  currentLabel
+  currentLabel,
+  helpText
 }: {
   label: string;
   accept: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   currentUrl: string;
   currentLabel: string;
+  helpText?: string;
 }) {
   return (
     <label className="block rounded-lg border border-dashed p-4">
       <span className="text-sm font-semibold">{label}</span>
       <input type="file" accept={accept} onChange={onChange} className="mt-2 w-full text-sm" />
+      {helpText ? <p className="mt-2 text-xs leading-5 text-gray-500">{helpText}</p> : null}
       {currentUrl ? (
         <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-sm font-semibold text-blue-700 underline">
           {currentLabel || "현재 파일"} 보기

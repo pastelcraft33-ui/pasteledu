@@ -16,6 +16,7 @@ type Props = {
 
 export default function MaterialModal({ material, categoryName, settings, onClose, onDownload }: Props) {
   const fileUrl = material.file_url ?? "";
+  const worksheetUrl = material.worksheet_url ?? "";
   const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
   const previewUrl = fileUrl ? createOfficePreviewUrl(fileUrl) : "";
 
@@ -185,6 +186,51 @@ export default function MaterialModal({ material, categoryName, settings, onClos
               </a>
             ) : null}
           </div>
+
+          {worksheetUrl ? (
+            <section className="mt-7 border-t pt-6" style={{ borderColor: settings.card_border_color }}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500">활동지</p>
+                  <h3 className="mt-1 text-base font-bold">활동지 미리보기</h3>
+                  {material.worksheet_file_name ? (
+                    <p className="mt-1 break-all text-xs text-gray-500">{material.worksheet_file_name}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-3 overflow-hidden rounded-md border bg-gray-50" style={{ borderColor: settings.card_border_color }}>
+                {isWorksheetImage(worksheetUrl) ? (
+                  <Image
+                    src={worksheetUrl}
+                    alt={`${material.title} 활동지 미리보기`}
+                    width={900}
+                    height={1200}
+                    unoptimized
+                    className="h-auto max-h-[520px] w-full object-contain"
+                  />
+                ) : (
+                  <iframe
+                    src={`${worksheetUrl}#toolbar=0&navpanes=0`}
+                    title={`${material.title} 활동지 미리보기`}
+                    className="h-[420px] w-full border-0 bg-white"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+
+              <a
+                href={worksheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onDownload}
+                className="mt-3 block rounded-md px-4 py-3 text-center text-sm font-bold text-white"
+                style={{ backgroundColor: settings.button_color }}
+              >
+                활동지 다운로드
+              </a>
+            </section>
+          ) : null}
         </aside>
       </div>
     </div>
@@ -193,4 +239,9 @@ export default function MaterialModal({ material, categoryName, settings, onClos
 
 function createOfficePreviewUrl(fileUrl: string) {
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+}
+
+function isWorksheetImage(url: string) {
+  const pathname = url.split("?")[0].toLowerCase();
+  return [".jpg", ".jpeg", ".png", ".webp"].some((extension) => pathname.endsWith(extension));
 }

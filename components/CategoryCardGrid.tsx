@@ -67,13 +67,14 @@ export default function CategoryCardGrid({ categories, materials, group, setting
               >
                 {category.card_image_url ? (
                   <Image
-                    src={category.card_image_url}
+                    src={getCategoryIconUrl(category.card_image_url)}
                     alt=""
                     width={72}
                     height={72}
                     sizes="72px"
                     quality={70}
                     priority={index < 4}
+                    unoptimized
                     className="h-full w-full object-contain"
                   />
                 ) : (
@@ -86,6 +87,27 @@ export default function CategoryCardGrid({ categories, materials, group, setting
       </div>
     </section>
   );
+}
+
+function getCategoryIconUrl(imageUrl: string) {
+  try {
+    const url = new URL(imageUrl);
+    const publicObjectPath = "/storage/v1/object/public/";
+
+    if (!url.hostname.endsWith(".supabase.co") || !url.pathname.includes(publicObjectPath)) {
+      return imageUrl;
+    }
+
+    url.pathname = url.pathname.replace(publicObjectPath, "/storage/v1/render/image/public/");
+    url.searchParams.set("width", "144");
+    url.searchParams.set("height", "144");
+    url.searchParams.set("resize", "contain");
+    url.searchParams.set("quality", "70");
+
+    return url.toString();
+  } catch {
+    return imageUrl;
+  }
 }
 
 function getCategoryPresentation(category: Category, group: CategoryGroup): CategoryPresentation {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Shapes, ShoppingBag, type LucideIcon } from "lucide-react";
+import { CalendarDays, FileText, Shapes, ShoppingBag, type LucideIcon } from "lucide-react";
 import BoardHeader from "@/components/BoardHeader";
 import CategoryOverviewModal from "@/components/CategoryOverviewModal";
 import CategoryColumn from "@/components/CategoryColumn";
@@ -22,7 +22,7 @@ type Props = {
   hasDataError?: boolean;
 };
 
-type ActiveLibraryView = LibraryView | "home";
+type ActiveLibraryView = LibraryView | "worksheet" | "home";
 
 const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> = {
   site_name: "Pastel PPT Library",
@@ -207,6 +207,10 @@ export default function Board({ settings, categories, materials, hasDataError = 
   const viewMaterials = useMemo(() => {
     if (activeView === "home") return clientMaterials;
 
+    if (activeView === "worksheet") {
+      return clientMaterials.filter((material) => Boolean(material.worksheet_url));
+    }
+
     if (isLibrarySection(activeView)) {
       return clientMaterials.filter((material) => getMaterialLibrarySections(material).includes(activeView));
     }
@@ -253,9 +257,11 @@ export default function Board({ settings, categories, materials, hasDataError = 
       ? !normalizedQuery || filteredMaterials.length > 0
       : activeLibrarySection
         ? filteredMaterials.length > 0
-        : visibleCategories.length > 0
+        : activeCategoryGroup
+          ? visibleCategories.length > 0
+          : filteredMaterials.length > 0
   );
-  const customBanner = isHome ? null : getLibraryBannerSettings(activeView, viewSettings);
+  const customBanner = isHome || activeView === "worksheet" ? null : getLibraryBannerSettings(activeView, viewSettings);
 
   return (
     <main
@@ -353,7 +359,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
         borderColor={viewSettings.card_border_color}
       />
 
-      {!isHome && customBanner ? (
+      {!isHome && activeView !== "worksheet" && customBanner ? (
         <LibraryBanner
           view={activeView}
           title={customBanner.title}
@@ -402,7 +408,13 @@ export default function Board({ settings, categories, materials, hasDataError = 
         {shouldShowViewEmpty ? (
           <EmptyState
             title={`${getLibraryViewLabel(activeView)}에 등록된 자료가 없습니다.`}
-            description={isHome || activeLibrarySection ? "관리자 페이지에서 자료의 노출 영역을 선택해주세요." : "관리자 페이지에서 자료의 카테고리를 선택해주세요."}
+            description={
+              activeView === "worksheet"
+                ? "관리자 페이지에서 PPT 자료에 활동지 파일을 등록해주세요."
+                : isHome || activeLibrarySection
+                  ? "관리자 페이지에서 자료의 노출 영역을 선택해주세요."
+                  : "관리자 페이지에서 자료의 카테고리를 선택해주세요."
+            }
             actionHref={isLoggedIn ? "/admin" : undefined}
             actionLabel={isLoggedIn ? "관리자 페이지로 이동" : undefined}
             buttonColor={viewSettings.button_color}
@@ -450,6 +462,17 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 category={null}
                 titleOverride={`${getLibrarySectionLabel(activeLibrarySection)} 전체 자료`}
                 descriptionOverride={`${getLibrarySectionLabel(activeLibrarySection)}으로 등록된 모든 자료입니다.`}
+                materials={filteredMaterials}
+                settings={viewSettings}
+                onSelectMaterial={openMaterial}
+                onDownloadMaterial={recordDownload}
+              />
+            ) : null}
+            {activeView === "worksheet" ? (
+              <CategoryColumn
+                category={null}
+                titleOverride="활동지 자료"
+                descriptionOverride="수업에 바로 활용할 수 있는 활동지가 포함된 자료입니다."
                 materials={filteredMaterials}
                 settings={viewSettings}
                 onSelectMaterial={openMaterial}
@@ -511,9 +534,10 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
 const shoppingAccent = "#168C7A";
 
-const categoryGroupTabs: Array<{ id: CategoryGroup; label: string; icon: LucideIcon; accent: string }> = [
+const categoryGroupTabs: Array<{ id: CategoryGroup | "worksheet"; label: string; icon: LucideIcon; accent: string }> = [
   { id: "month", label: "월별", icon: CalendarDays, accent: "#D97706" },
-  { id: "subject", label: "주제별", icon: Shapes, accent: "#7557B7" }
+  { id: "subject", label: "주제별", icon: Shapes, accent: "#7557B7" },
+  { id: "worksheet", label: "활동지", icon: FileText, accent: "#168C7A" }
 ];
 
 const librarySections: LibrarySection[] = ["kindergarten", "elementary", "senior"];
@@ -532,6 +556,7 @@ function getLibraryViewLabel(view: ActiveLibraryView) {
   if (view === "home") return "메인 자료실";
   if (view === "month") return "월별 수업자료";
   if (view === "subject") return "주제별 수업자료";
+  if (view === "worksheet") return "활동지 자료";
   return getLibrarySectionLabel(view);
 }
 
