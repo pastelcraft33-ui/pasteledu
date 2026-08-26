@@ -9,11 +9,12 @@ type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
 type Props = {
   material: PptMaterial;
   settings: BoardSettings;
+  imagePriority?: boolean;
   onClick: () => void;
   onDownload: () => void;
 };
 
-export default function MaterialCard({ material, settings, onClick, onDownload }: Props) {
+export default function MaterialCard({ material, settings, imagePriority = false, onClick, onDownload }: Props) {
   const formattedDate = formatDate(material.created_at);
   const [thumbnailState, setThumbnailState] = useState<"loading" | "loaded" | "error">(
     material.thumbnail_url ? "loading" : "error"
@@ -46,8 +47,9 @@ export default function MaterialCard({ material, settings, onClick, onDownload }
             src={material.thumbnail_url}
             alt={`${material.title} 썸네일`}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
-            unoptimized
+            sizes="(max-width: 639px) calc(100vw - 32px), (max-width: 1023px) calc(50vw - 32px), (max-width: 1279px) calc(33vw - 32px), 304px"
+            quality={72}
+            priority={imagePriority}
             onLoad={() => setThumbnailState("loaded")}
             onError={() => setThumbnailState("error")}
             className={`object-cover transition-opacity duration-200 ${thumbnailState === "loaded" ? "opacity-100" : "opacity-0"}`}

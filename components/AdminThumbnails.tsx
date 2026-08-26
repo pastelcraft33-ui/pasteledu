@@ -68,7 +68,10 @@ export default function AdminThumbnails({ categories, materials, onChanged, setM
 
     setItemStatus(material.id, "uploading");
     const path = createSafeStorageFileName(file.name);
-    const uploadResult = await supabase.storage.from("thumbnails").upload(path, file, { upsert: false });
+    const uploadResult = await supabase.storage.from("thumbnails").upload(path, file, {
+      upsert: false,
+      cacheControl: "31536000"
+    });
 
     if (uploadResult.error) {
       console.error("Thumbnail upload error", uploadResult.error);

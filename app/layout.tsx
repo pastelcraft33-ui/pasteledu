@@ -35,6 +35,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
+      <head>
+        <link rel="preconnect" href="https://nwkxpcqjtmhsuakgupjn.supabase.co" crossOrigin="anonymous" />
+      </head>
       <body>{children}</body>
     </html>
   );

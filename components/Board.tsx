@@ -422,7 +422,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
         {shouldShowBoard ? (
           <div className="mx-auto min-h-[620px] max-w-7xl space-y-8">
             {isHome
-              ? librarySections.map((section) => {
+              ? librarySections.map((section, sectionIndex) => {
                   const sectionMaterials = filteredMaterials
                     .filter((material) => getMaterialLibrarySections(material).includes(section))
                     .slice(0, 8);
@@ -440,6 +440,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                       onSelectMaterial={openMaterial}
                       onDownloadMaterial={recordDownload}
                       onViewAll={() => setActiveView(section)}
+                      prioritizeFirstRow={sectionIndex === 0}
                     />
                   );
                 })

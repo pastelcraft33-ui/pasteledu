@@ -121,7 +121,10 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setIsUploading(true);
     setMessage("파일 업로드 중...");
     const path = createSafeStorageFileName(file.name);
-    const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false });
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      upsert: false,
+      ...(bucket === "thumbnails" ? { cacheControl: "31536000" } : {})
+    });
     setIsUploading(false);
 
     if (error) {

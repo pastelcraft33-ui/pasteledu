@@ -14,6 +14,7 @@ type Props = {
   onSelectMaterial: (material: PptMaterial) => void;
   onDownloadMaterial: (material: PptMaterial) => void;
   onViewAll?: () => void;
+  prioritizeFirstRow?: boolean;
 };
 
 export default function CategoryColumn({
@@ -26,7 +27,8 @@ export default function CategoryColumn({
   settings,
   onSelectMaterial,
   onDownloadMaterial,
-  onViewAll
+  onViewAll,
+  prioritizeFirstRow = false
 }: Props) {
   const title = titleOverride ?? category?.name ?? "미분류";
   const description = descriptionOverride ?? (category ? category.description : "카테고리가 지정되지 않은 자료입니다.");
@@ -116,11 +118,12 @@ export default function CategoryColumn({
         </div>
       </div>
       <div className="grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {materials.map((material) => (
+        {materials.map((material, index) => (
           <MaterialCard
             key={material.id}
             material={material}
             settings={settings}
+            imagePriority={prioritizeFirstRow && index < 4}
             onClick={() => onSelectMaterial(material)}
             onDownload={() => onDownloadMaterial(material)}
           />
