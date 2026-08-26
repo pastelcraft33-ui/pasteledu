@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Category, CategoryGroup, PptMaterial, SiteSettings } from "@/lib/types";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
@@ -33,7 +34,7 @@ export default function CategoryCardGrid({ categories, materials, group, setting
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-        {categories.map((category) => {
+        {categories.map((category, index) => {
           const presentation = getCategoryPresentation(category, group);
           const materialCount = materials.filter((material) =>
             group === "month" ? material.secondary_category_id === category.id : material.category_id === category.id
@@ -65,10 +66,14 @@ export default function CategoryCardGrid({ categories, materials, group, setting
                 aria-hidden="true"
               >
                 {category.card_image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- 관리자가 등록한 Supabase 동적 URL을 표시합니다.
-                  <img
+                  <Image
                     src={category.card_image_url}
                     alt=""
+                    width={72}
+                    height={72}
+                    sizes="72px"
+                    quality={70}
+                    priority={index < 4}
                     className="h-full w-full object-contain"
                   />
                 ) : (

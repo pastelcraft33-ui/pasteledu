@@ -104,7 +104,10 @@ export default function AdminCategories({ categories, materials, onChanged, setM
 
     if (imageFile) {
       const storagePath = `categories/${createSafeStorageFileName(imageFile.name)}`;
-      const { error: uploadError } = await supabase.storage.from("site-assets").upload(storagePath, imageFile, { upsert: false });
+      const { error: uploadError } = await supabase.storage.from("site-assets").upload(storagePath, imageFile, {
+        upsert: false,
+        cacheControl: "31536000"
+      });
 
       if (uploadError) {
         console.error("Category image upload error", uploadError);
