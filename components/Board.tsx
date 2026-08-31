@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import LibraryBanner from "@/components/LibraryBanner";
 import LibrarySectionNav from "@/components/LibrarySectionNav";
 import MaterialModal from "@/components/MaterialModal";
+import WorksheetModal from "@/components/WorksheetModal";
 import SearchBar from "@/components/SearchBar";
 import CategoryCardGrid from "@/components/CategoryCardGrid";
 import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
@@ -60,6 +61,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
   const [query, setQuery] = useState("");
   const [activeView, setActiveView] = useState<ActiveLibraryView>("home");
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
+  const [selectedMaterialMode, setSelectedMaterialMode] = useState<"ppt" | "worksheet">("ppt");
   const [overviewCategory, setOverviewCategory] = useState<Category | null>(null);
   const [urlMaterialId, setUrlMaterialId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -155,7 +157,9 @@ export default function Board({ settings, categories, materials, hasDataError = 
   useEffect(() => {
     function syncMaterialIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
-      setUrlMaterialId(params.get("ppt"));
+      const worksheetId = params.get("worksheet");
+      setSelectedMaterialMode(worksheetId ? "worksheet" : "ppt");
+      setUrlMaterialId(worksheetId ?? params.get("ppt"));
     }
 
     syncMaterialIdFromUrl();
@@ -175,15 +179,23 @@ export default function Board({ settings, categories, materials, hasDataError = 
   }, [clientMaterials, urlMaterialId]);
 
   function openMaterial(material: PptMaterial) {
+    setSelectedMaterialMode("ppt");
     setSelectedMaterial(material);
     setUrlMaterialId(material.id);
-    updateMaterialUrl(material.id);
+    updateMaterialUrl(material.id, "ppt");
+  }
+
+  function openWorksheet(material: PptMaterial) {
+    setSelectedMaterialMode("worksheet");
+    setSelectedMaterial(material);
+    setUrlMaterialId(material.id);
+    updateMaterialUrl(material.id, "worksheet");
   }
 
   function closeMaterial() {
     setSelectedMaterial(null);
     setUrlMaterialId(null);
-    updateMaterialUrl(null);
+    updateMaterialUrl(null, selectedMaterialMode);
   }
 
   function recordDownload(material: PptMaterial) {
@@ -196,7 +208,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
     setOverviewCategory(null);
     setSelectedMaterial(null);
     setUrlMaterialId(null);
-    updateMaterialUrl(null);
+    updateMaterialUrl(null, selectedMaterialMode);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -475,8 +487,9 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 descriptionOverride="수업에 바로 활용할 수 있는 활동지가 포함된 자료입니다."
                 materials={filteredMaterials}
                 settings={viewSettings}
-                onSelectMaterial={openMaterial}
+                onSelectMaterial={openWorksheet}
                 onDownloadMaterial={recordDownload}
+                cardMode="worksheet"
               />
             ) : null}
             {activeCategoryGroup ? (
@@ -519,12 +532,21 @@ export default function Board({ settings, categories, materials, hasDataError = 
         />
       ) : null}
 
-      {selectedMaterial ? (
+      {selectedMaterial && selectedMaterialMode === "ppt" ? (
         <MaterialModal
           material={selectedMaterial}
           categoryName={selectedCategoryName}
           settings={viewSettings}
           onDownload={() => recordDownload(selectedMaterial)}
+          onClose={closeMaterial}
+        />
+      ) : null}
+      {selectedMaterial && selectedMaterialMode === "worksheet" ? (
+        <WorksheetModal
+          material={selectedMaterial}
+          settings={viewSettings}
+          onDownload={() => recordDownload(selectedMaterial)}
+          onOpenPpt={() => openMaterial(selectedMaterial)}
           onClose={closeMaterial}
         />
       ) : null}
@@ -633,12 +655,14 @@ function getMaterialCategoryNames(material: PptMaterial, categories: Category[])
   return names.length > 0 ? names.join(", ") : "미분류";
 }
 
-function updateMaterialUrl(materialId: string | null) {
+function updateMaterialUrl(materialId: string | null, mode: "ppt" | "worksheet") {
   const url = new URL(window.location.href);
+  url.searchParams.delete(mode === "ppt" ? "worksheet" : "ppt");
   if (materialId) {
-    url.searchParams.set("ppt", materialId);
+    url.searchParams.set(mode, materialId);
   } else {
     url.searchParams.delete("ppt");
+    url.searchParams.delete("worksheet");
   }
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;

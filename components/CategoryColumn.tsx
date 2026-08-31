@@ -1,4 +1,5 @@
 import MaterialCard from "@/components/MaterialCard";
+import WorksheetCard from "@/components/WorksheetCard";
 import type { Category, PptMaterial, SiteSettings } from "@/lib/types";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
@@ -15,6 +16,7 @@ type Props = {
   onDownloadMaterial: (material: PptMaterial) => void;
   onViewAll?: () => void;
   prioritizeFirstRow?: boolean;
+  cardMode?: "ppt" | "worksheet";
 };
 
 export default function CategoryColumn({
@@ -28,7 +30,8 @@ export default function CategoryColumn({
   onSelectMaterial,
   onDownloadMaterial,
   onViewAll,
-  prioritizeFirstRow = false
+  prioritizeFirstRow = false,
+  cardMode = "ppt"
 }: Props) {
   const title = titleOverride ?? category?.name ?? "미분류";
   const description = descriptionOverride ?? (category ? category.description : "카테고리가 지정되지 않은 자료입니다.");
@@ -73,15 +76,25 @@ export default function CategoryColumn({
           ].join(" ")}
           style={{ scrollbarGutter: shouldUseInternalScroll ? "stable" : undefined }}
         >
-          {materials.map((material) => (
-            <MaterialCard
-              key={material.id}
-              material={material}
-              settings={settings}
-              onClick={() => onSelectMaterial(material)}
-              onDownload={() => onDownloadMaterial(material)}
-            />
-          ))}
+          {materials.map((material) =>
+            cardMode === "worksheet" ? (
+              <WorksheetCard
+                key={material.id}
+                material={material}
+                settings={settings}
+                onClick={() => onSelectMaterial(material)}
+                onDownload={() => onDownloadMaterial(material)}
+              />
+            ) : (
+              <MaterialCard
+                key={material.id}
+                material={material}
+                settings={settings}
+                onClick={() => onSelectMaterial(material)}
+                onDownload={() => onDownloadMaterial(material)}
+              />
+            )
+          )}
           {materials.length === 0 ? (
             <div className="rounded-md border border-dashed bg-white/50 p-4 text-center text-sm opacity-60 sm:p-5 sm:text-base">
               등록된 자료가 없습니다.
@@ -118,16 +131,26 @@ export default function CategoryColumn({
         </div>
       </div>
       <div className="grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {materials.map((material, index) => (
-          <MaterialCard
-            key={material.id}
-            material={material}
-            settings={settings}
-            imagePriority={prioritizeFirstRow && index < 4}
-            onClick={() => onSelectMaterial(material)}
-            onDownload={() => onDownloadMaterial(material)}
-          />
-        ))}
+        {materials.map((material, index) =>
+          cardMode === "worksheet" ? (
+            <WorksheetCard
+              key={material.id}
+              material={material}
+              settings={settings}
+              onClick={() => onSelectMaterial(material)}
+              onDownload={() => onDownloadMaterial(material)}
+            />
+          ) : (
+            <MaterialCard
+              key={material.id}
+              material={material}
+              settings={settings}
+              imagePriority={prioritizeFirstRow && index < 4}
+              onClick={() => onSelectMaterial(material)}
+              onDownload={() => onDownloadMaterial(material)}
+            />
+          )
+        )}
         {materials.length === 0 ? (
           <div className="col-span-full rounded-md border border-dashed bg-white/50 p-5 text-center text-sm opacity-60 sm:text-base">
             등록된 자료가 없습니다.
