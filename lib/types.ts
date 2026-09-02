@@ -32,6 +32,8 @@ export type PptMaterial = {
   file_name: string | null;
   worksheet_url: string | null;
   worksheet_file_name: string | null;
+  worksheet_urls: string[];
+  worksheet_file_names: string[];
   is_downloadable: boolean;
   sort_order: number;
   created_at: string;
@@ -103,6 +105,8 @@ export type MaterialFormState = {
   file_name: string;
   worksheet_url: string;
   worksheet_file_name: string;
+  worksheet_urls: string[];
+  worksheet_file_names: string[];
   is_downloadable: boolean;
   sort_order: number;
 };

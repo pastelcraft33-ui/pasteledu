@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { FileText, Presentation } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Presentation } from "lucide-react";
 import { useEffect, useState } from "react";
+import WorksheetPdfPage from "@/components/WorksheetPdfPage";
 import type { PptMaterial, SiteSettings } from "@/lib/types";
+import { getWorksheetFiles, isWorksheetImage } from "@/lib/worksheet-utils";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
 
@@ -16,12 +18,40 @@ type Props = {
 };
 
 export default function WorksheetModal({ material, settings, onClose, onDownload, onOpenPpt }: Props) {
-  const worksheetUrl = material.worksheet_url ?? "";
+  const worksheetFiles = getWorksheetFiles(material);
+  const [activeFileIndex, setActiveFileIndex] = useState(0);
+  const [activePage, setActivePage] = useState(1);
+  const [pageCounts, setPageCounts] = useState<Record<number, number>>({});
   const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
+  const activeWorksheet = worksheetFiles[activeFileIndex] ?? null;
+  const worksheetUrl = activeWorksheet?.url ?? "";
+  const activePageCount = activeWorksheet
+    ? isWorksheetImage(activeWorksheet.url)
+      ? 1
+      : pageCounts[activeFileIndex] ?? 1
+    : 0;
+  const slideCounts = worksheetFiles.map((file, index) => isWorksheetImage(file.url) ? 1 : pageCounts[index] ?? 1);
+  const totalSlideCount = slideCounts.reduce((total, count) => total + count, 0);
+  const currentSlideNumber = slideCounts.slice(0, activeFileIndex).reduce((total, count) => total + count, 0) + activePage;
 
   useEffect(() => {
     setIsPreviewLoaded(false);
   }, [worksheetUrl]);
+
+  function moveSlide(direction: -1 | 1) {
+    if (direction === 1 && activePage < activePageCount) {
+      setActivePage((current) => current + 1);
+      return;
+    }
+    if (direction === -1 && activePage > 1) {
+      setActivePage((current) => current - 1);
+      return;
+    }
+
+    const nextFileIndex = (activeFileIndex + direction + worksheetFiles.length) % worksheetFiles.length;
+    setActiveFileIndex(nextFileIndex);
+    setActivePage(direction === -1 ? slideCounts[nextFileIndex] : 1);
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -64,11 +94,15 @@ export default function WorksheetModal({ material, settings, onClose, onDownload
                 onLoad={() => setIsPreviewLoaded(true)}
               />
             ) : (
-              <iframe
-                src={`${worksheetUrl}#page=1&toolbar=0&navpanes=0`}
-                title={`${material.title} 활동지 미리보기`}
-                className="h-full w-full border-0 bg-white"
-                onLoad={() => setIsPreviewLoaded(true)}
+              <WorksheetPdfPage
+                key={worksheetUrl}
+                url={worksheetUrl}
+                pageNumber={activePage}
+                onPageCount={(count) => {
+                  setPageCounts((current) => ({ ...current, [activeFileIndex]: count }));
+                  setIsPreviewLoaded(true);
+                }}
+                loadingLabel="활동지를 불러오고 있습니다."
               />
             )}
             {!isPreviewLoaded ? (
@@ -78,6 +112,29 @@ export default function WorksheetModal({ material, settings, onClose, onDownload
                 </span>
                 <p className="mt-4 text-sm font-bold text-gray-700">활동지를 불러오고 있습니다.</p>
               </div>
+            ) : null}
+            {totalSlideCount > 1 ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="이전 활동지"
+                  onClick={() => moveSlide(-1)}
+                  className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg"
+                >
+                  <ChevronLeft className="h-7 w-7" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="다음 활동지"
+                  onClick={() => moveSlide(1)}
+                  className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg"
+                >
+                  <ChevronRight className="h-7 w-7" aria-hidden="true" />
+                </button>
+                <span className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-gray-900/85 px-3 py-1.5 text-xs font-black text-white">
+                  {currentSlideNumber} / {totalSlideCount}
+                </span>
+              </>
             ) : null}
           </div>
         </div>
@@ -97,10 +154,11 @@ export default function WorksheetModal({ material, settings, onClose, onDownload
           </div>
 
           {material.description ? <p className="mt-4 whitespace-pre-line text-sm leading-6 text-gray-600">{material.description}</p> : null}
-          {material.worksheet_file_name ? (
+          {activeWorksheet?.fileName ? (
             <div className="mt-5 border-t pt-4 text-sm" style={{ borderColor: settings.card_border_color }}>
               <p className="text-xs font-semibold text-gray-500">활동지 파일명</p>
-              <p className="mt-1 break-all font-semibold">{material.worksheet_file_name}</p>
+              <p className="mt-1 break-all font-semibold">{activeWorksheet.fileName}</p>
+              {totalSlideCount > 1 ? <p className="mt-1 text-xs text-gray-500">전체 {totalSlideCount}장 중 {currentSlideNumber}장</p> : null}
             </div>
           ) : null}
 
@@ -153,9 +211,4 @@ export default function WorksheetModal({ material, settings, onClose, onDownload
       </section>
     </div>
   );
-}
-
-function isWorksheetImage(url: string) {
-  const pathname = url.split("?")[0].toLowerCase();
-  return [".jpg", ".jpeg", ".png", ".webp"].some((extension) => pathname.endsWith(extension));
 }

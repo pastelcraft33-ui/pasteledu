@@ -26,6 +26,8 @@ create table if not exists public.ppt_materials (
   file_name text,
   worksheet_url text,
   worksheet_file_name text,
+  worksheet_urls text[] not null default '{}',
+  worksheet_file_names text[] not null default '{}',
   is_downloadable boolean default true,
   sort_order integer default 0,
   created_at timestamp with time zone default now(),
@@ -75,6 +77,19 @@ add column if not exists worksheet_url text;
 
 alter table public.ppt_materials
 add column if not exists worksheet_file_name text;
+
+alter table public.ppt_materials
+add column if not exists worksheet_urls text[] not null default '{}';
+
+alter table public.ppt_materials
+add column if not exists worksheet_file_names text[] not null default '{}';
+
+update public.ppt_materials
+set
+  worksheet_urls = array[worksheet_url],
+  worksheet_file_names = array[coalesce(worksheet_file_name, '활동지 1')]
+where worksheet_url is not null
+  and coalesce(array_length(worksheet_urls, 1), 0) = 0;
 
 update public.ppt_materials
 set age_groups = '{}'

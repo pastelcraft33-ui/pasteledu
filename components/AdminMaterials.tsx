@@ -13,6 +13,7 @@ import {
 } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AgeGroup, Category, CategoryGroup, LibrarySection, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
+import { getWorksheetFiles } from "@/lib/worksheet-utils";
 
 type Props = {
   categories: Category[];
@@ -34,6 +35,8 @@ const emptyForm: MaterialFormState = {
   file_name: "",
   worksheet_url: "",
   worksheet_file_name: "",
+  worksheet_urls: [],
+  worksheet_file_names: [],
   is_downloadable: true,
   sort_order: 0
 };
@@ -156,7 +159,85 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     event.target.value = "";
   }
 
+  async function uploadWorksheetFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    const invalidFile = files.find((file) => !validateFile(file, "worksheet-files").isValid);
+    if (invalidFile) {
+      setMessage("활동지는 PDF, JPG, PNG, WEBP 파일만 업로드할 수 있습니다.");
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploading(true);
+    setMessage(`활동지 ${files.length}개를 업로드하고 있습니다...`);
+
+    const uploaded: Array<{ url: string; fileName: string }> = [];
+    for (const file of files) {
+      const path = createSafeStorageFileName(file.name);
+      const { error } = await supabase.storage.from("worksheet-files").upload(path, file, { upsert: false });
+      if (error) {
+        console.error("Worksheet upload failed", error);
+        setIsUploading(false);
+        setMessage(`${file.name} 업로드에 실패했습니다. 먼저 업로드된 파일은 목록에 유지됩니다.`);
+        appendWorksheetFiles(uploaded);
+        event.target.value = "";
+        return;
+      }
+
+      const { data } = supabase.storage.from("worksheet-files").getPublicUrl(path);
+      uploaded.push({ url: data.publicUrl, fileName: file.name });
+    }
+
+    appendWorksheetFiles(uploaded);
+    setIsUploading(false);
+    setMessage(`활동지 ${uploaded.length}개 업로드가 완료되었습니다.`);
+    event.target.value = "";
+  }
+
+  function appendWorksheetFiles(files: Array<{ url: string; fileName: string }>) {
+    if (files.length === 0) return;
+    setForm((current) => {
+      const existingUrls = current.worksheet_urls.length > 0
+        ? current.worksheet_urls
+        : current.worksheet_url
+          ? [current.worksheet_url]
+          : [];
+      const existingNames = current.worksheet_file_names.length > 0
+        ? current.worksheet_file_names
+        : current.worksheet_file_name
+          ? [current.worksheet_file_name]
+          : [];
+      const worksheetUrls = [...existingUrls, ...files.map((file) => file.url)];
+      const worksheetFileNames = [...existingNames, ...files.map((file) => file.fileName)];
+
+      return {
+        ...current,
+        worksheet_url: worksheetUrls[0] ?? "",
+        worksheet_file_name: worksheetFileNames[0] ?? "",
+        worksheet_urls: worksheetUrls,
+        worksheet_file_names: worksheetFileNames
+      };
+    });
+  }
+
+  function removeWorksheetFile(index: number) {
+    setForm((current) => {
+      const worksheetUrls = current.worksheet_urls.filter((_, itemIndex) => itemIndex !== index);
+      const worksheetFileNames = current.worksheet_file_names.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        worksheet_url: worksheetUrls[0] ?? "",
+        worksheet_file_name: worksheetFileNames[0] ?? "",
+        worksheet_urls: worksheetUrls,
+        worksheet_file_names: worksheetFileNames
+      };
+    });
+  }
+
   function editMaterial(material: PptMaterialWithCategory) {
+    const worksheetFiles = getWorksheetFiles(material);
     setForm({
       id: material.id,
       category_id: material.category_id ?? "",
@@ -171,6 +252,8 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       file_name: material.file_name ?? "",
       worksheet_url: material.worksheet_url ?? "",
       worksheet_file_name: material.worksheet_file_name ?? "",
+      worksheet_urls: worksheetFiles.map((file) => file.url),
+      worksheet_file_names: worksheetFiles.map((file) => file.fileName),
       is_downloadable: material.is_downloadable,
       sort_order: material.sort_order
     });
@@ -217,6 +300,8 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       file_name: form.file_name || null,
       worksheet_url: form.worksheet_url || null,
       worksheet_file_name: form.worksheet_file_name || null,
+      worksheet_urls: form.worksheet_urls,
+      worksheet_file_names: form.worksheet_file_names,
       is_downloadable: form.is_downloadable,
       sort_order: Number(form.sort_order)
     };
@@ -237,8 +322,12 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
         setMessage("자료 노출 영역을 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-library-sections.sql 전체를 실행해주세요.");
         return;
       }
+      if (isMissingDatabaseColumn(result.error, "worksheet_urls") || isMissingDatabaseColumn(result.error, "worksheet_file_names")) {
+        setMessage("여러 활동지를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-multiple-worksheet-files.sql 전체를 실행해주세요.");
+        return;
+      }
       if (isMissingDatabaseColumn(result.error, "worksheet_")) {
-        setMessage("활동지 정보를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-worksheet-files.sql 전체를 실행해주세요.");
+        setMessage("활동지 정보를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 활동지 SQL 파일을 실행해주세요.");
         return;
       }
       setMessage("저장 중 오류가 발생했습니다. 입력값과 로그인 상태를 확인해주세요.");
@@ -260,17 +349,21 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       return;
     }
 
-    const storageDeleteErrors = await removeMaterialFiles(material.thumbnail_url, material.file_url, material.worksheet_url);
+    const storageDeleteErrors = await removeMaterialFiles(
+      material.thumbnail_url,
+      material.file_url,
+      getWorksheetFiles(material).map((file) => file.url)
+    );
     setMessage(storageDeleteErrors ? "자료가 삭제되었습니다. 일부 Storage 파일은 삭제하지 못했습니다." : "자료가 삭제되었습니다.");
     if (form.id === material.id) closeForm();
     await onChanged();
   }
 
-  async function removeMaterialFiles(thumbnailUrl: string | null, fileUrl: string | null, worksheetUrl: string | null) {
+  async function removeMaterialFiles(thumbnailUrl: string | null, fileUrl: string | null, worksheetUrls: string[]) {
     const targets = [
       getStorageObject("thumbnails", thumbnailUrl),
       getStorageObject("ppt-files", fileUrl),
-      getStorageObject("worksheet-files", worksheetUrl)
+      ...worksheetUrls.map((url) => getStorageObject("worksheet-files", url))
     ].filter((target): target is { bucket: MaterialStorageBucket; path: string } => Boolean(target));
 
     if (targets.length === 0) return false;
@@ -456,14 +549,41 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
               currentUrl={form.file_url}
               currentLabel={`현재 PPT 파일${form.file_name ? `: ${form.file_name}` : ""}`}
             />
-            <FileField
-              label="활동지 파일"
-              accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onChange={(event) => uploadFile(event, "worksheet-files")}
-              currentUrl={form.worksheet_url}
-              currentLabel={`현재 활동지${form.worksheet_file_name ? `: ${form.worksheet_file_name}` : ""}`}
-              helpText="PDF, JPG, PNG, WEBP 파일을 업로드할 수 있습니다. 새 파일을 선택하지 않으면 기존 활동지가 유지됩니다."
-            />
+            <div className="rounded-lg border border-dashed p-4 lg:col-span-2">
+              <label className="block">
+                <span className="text-sm font-semibold">활동지 파일</span>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  multiple
+                  onChange={uploadWorksheetFiles}
+                  className="mt-2 w-full text-sm"
+                />
+                <p className="mt-2 text-xs leading-5 text-gray-500">
+                  여러 파일을 한 번에 선택할 수 있습니다. 선택한 순서대로 활동지 슬라이드에 표시됩니다.
+                </p>
+              </label>
+              {form.worksheet_urls.length > 0 ? (
+                <ol className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {form.worksheet_urls.map((url, index) => (
+                    <li key={`${url}-${index}`} className="flex items-center justify-between gap-3 rounded-md border bg-gray-50 px-3 py-2 text-sm">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate font-semibold text-blue-700 underline">
+                        {index + 1}. {form.worksheet_file_names[index] || `활동지 ${index + 1}`}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removeWorksheetFile(index)}
+                        className="shrink-0 rounded border bg-white px-2 py-1 text-xs font-bold text-red-700"
+                      >
+                        삭제
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-3 text-xs text-gray-500">아직 선택된 활동지가 없습니다.</p>
+              )}
+            </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <button

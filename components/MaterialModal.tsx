@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import WorksheetPdfPage from "@/components/WorksheetPdfPage";
 import type { PptMaterial, SiteSettings } from "@/lib/types";
+import { getWorksheetFiles, isWorksheetImage } from "@/lib/worksheet-utils";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
 
@@ -16,7 +19,23 @@ type Props = {
 
 export default function MaterialModal({ material, categoryName, settings, onClose, onDownload }: Props) {
   const fileUrl = material.file_url ?? "";
-  const worksheetUrl = material.worksheet_url ?? "";
+  const worksheetFiles = getWorksheetFiles(material);
+  const [worksheetFileIndex, setWorksheetFileIndex] = useState(0);
+  const [worksheetPage, setWorksheetPage] = useState(1);
+  const [worksheetPageCounts, setWorksheetPageCounts] = useState<Record<number, number>>({});
+  const activeWorksheet = worksheetFiles[worksheetFileIndex] ?? null;
+  const worksheetUrl = activeWorksheet?.url ?? "";
+  const activeWorksheetPageCount = activeWorksheet
+    ? isWorksheetImage(activeWorksheet.url)
+      ? 1
+      : worksheetPageCounts[worksheetFileIndex] ?? 1
+    : 0;
+  const worksheetSlideCounts = worksheetFiles.map((file, index) =>
+    isWorksheetImage(file.url) ? 1 : worksheetPageCounts[index] ?? 1
+  );
+  const totalWorksheetSlides = worksheetSlideCounts.reduce((total, count) => total + count, 0);
+  const currentWorksheetSlide =
+    worksheetSlideCounts.slice(0, worksheetFileIndex).reduce((total, count) => total + count, 0) + worksheetPage;
   const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
   const previewUrl = fileUrl ? createOfficePreviewUrl(fileUrl) : "";
 
@@ -36,7 +55,25 @@ export default function MaterialModal({ material, categoryName, settings, onClos
 
   useEffect(() => {
     setIsPreviewLoaded(false);
+    setWorksheetFileIndex(0);
+    setWorksheetPage(1);
+    setWorksheetPageCounts({});
   }, [material.id]);
+
+  function moveWorksheet(direction: -1 | 1) {
+    if (direction === 1 && worksheetPage < activeWorksheetPageCount) {
+      setWorksheetPage((current) => current + 1);
+      return;
+    }
+    if (direction === -1 && worksheetPage > 1) {
+      setWorksheetPage((current) => current - 1);
+      return;
+    }
+
+    const nextFileIndex = (worksheetFileIndex + direction + worksheetFiles.length) % worksheetFiles.length;
+    setWorksheetFileIndex(nextFileIndex);
+    setWorksheetPage(direction === -1 ? worksheetSlideCounts[nextFileIndex] : 1);
+  }
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -193,13 +230,21 @@ export default function MaterialModal({ material, categoryName, settings, onClos
                 <div>
                   <p className="text-xs font-semibold text-gray-500">활동지</p>
                   <h3 className="mt-1 text-base font-bold">활동지 미리보기</h3>
-                  {material.worksheet_file_name ? (
-                    <p className="mt-1 break-all text-xs text-gray-500">{material.worksheet_file_name}</p>
+                  {activeWorksheet?.fileName ? (
+                    <p className="mt-1 break-all text-xs text-gray-500">{activeWorksheet.fileName}</p>
                   ) : null}
                 </div>
+                {totalWorksheetSlides > 1 ? (
+                  <span
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-black text-white shadow-lg"
+                    aria-label={`활동지 ${totalWorksheetSlides}장`}
+                  >
+                    {totalWorksheetSlides}장
+                  </span>
+                ) : null}
               </div>
 
-              <div className="mt-3 overflow-hidden rounded-md border bg-gray-50" style={{ borderColor: settings.card_border_color }}>
+              <div className="relative mt-3 overflow-hidden rounded-md border bg-gray-50" style={{ borderColor: settings.card_border_color }}>
                 {isWorksheetImage(worksheetUrl) ? (
                   <Image
                     src={worksheetUrl}
@@ -210,13 +255,40 @@ export default function MaterialModal({ material, categoryName, settings, onClos
                     className="h-auto max-h-[520px] w-full object-contain"
                   />
                 ) : (
-                  <iframe
-                    src={`${worksheetUrl}#toolbar=0&navpanes=0`}
-                    title={`${material.title} 활동지 미리보기`}
-                    className="h-[420px] w-full border-0 bg-white"
-                    loading="lazy"
-                  />
+                  <div className="h-[420px] w-full bg-white">
+                    <WorksheetPdfPage
+                      key={worksheetUrl}
+                      url={worksheetUrl}
+                      pageNumber={worksheetPage}
+                      onPageCount={(count) =>
+                        setWorksheetPageCounts((current) => ({ ...current, [worksheetFileIndex]: count }))
+                      }
+                    />
+                  </div>
                 )}
+                {totalWorksheetSlides > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="이전 활동지"
+                      onClick={() => moveWorksheet(-1)}
+                      className="absolute left-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 shadow-md"
+                    >
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="다음 활동지"
+                      onClick={() => moveWorksheet(1)}
+                      className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 shadow-md"
+                    >
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-gray-900/80 px-2.5 py-1 text-xs font-bold text-white">
+                      {currentWorksheetSlide} / {totalWorksheetSlides}
+                    </span>
+                  </>
+                ) : null}
               </div>
 
               <a
@@ -239,9 +311,4 @@ export default function MaterialModal({ material, categoryName, settings, onClos
 
 function createOfficePreviewUrl(fileUrl: string) {
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
-}
-
-function isWorksheetImage(url: string) {
-  const pathname = url.split("?")[0].toLowerCase();
-  return [".jpg", ".jpeg", ".png", ".webp"].some((extension) => pathname.endsWith(extension));
 }

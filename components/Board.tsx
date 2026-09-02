@@ -13,6 +13,7 @@ import WorksheetModal from "@/components/WorksheetModal";
 import SearchBar from "@/components/SearchBar";
 import CategoryCardGrid from "@/components/CategoryCardGrid";
 import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
+import { getWorksheetFiles } from "@/lib/worksheet-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, CategoryGroup, LibrarySection, LibraryView, MaterialEventType, PptMaterial, SiteSettings } from "@/lib/types";
 
@@ -220,7 +221,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
     if (activeView === "home") return clientMaterials;
 
     if (activeView === "worksheet") {
-      return clientMaterials.filter((material) => Boolean(material.worksheet_url));
+      return clientMaterials.filter((material) => getWorksheetFiles(material).length > 0);
     }
 
     if (isLibrarySection(activeView)) {
