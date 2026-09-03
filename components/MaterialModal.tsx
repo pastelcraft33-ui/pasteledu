@@ -28,10 +28,10 @@ export default function MaterialModal({ material, categoryName, settings, onClos
   const activeWorksheetPageCount = activeWorksheet
     ? isWorksheetImage(activeWorksheet.url)
       ? 1
-      : worksheetPageCounts[worksheetFileIndex] ?? 1
+      : worksheetPageCounts[worksheetFileIndex] ?? activeWorksheet.pageCount
     : 0;
   const worksheetSlideCounts = worksheetFiles.map((file, index) =>
-    isWorksheetImage(file.url) ? 1 : worksheetPageCounts[index] ?? 1
+    isWorksheetImage(file.url) ? 1 : worksheetPageCounts[index] ?? file.pageCount
   );
   const totalWorksheetSlides = worksheetSlideCounts.reduce((total, count) => total + count, 0);
   const currentWorksheetSlide =
@@ -245,9 +245,9 @@ export default function MaterialModal({ material, categoryName, settings, onClos
               </div>
 
               <div className="relative mt-3 overflow-hidden rounded-md border bg-gray-50" style={{ borderColor: settings.card_border_color }}>
-                {isWorksheetImage(worksheetUrl) ? (
+                {isWorksheetImage(worksheetUrl) || (worksheetPage === 1 && activeWorksheet?.previewUrl) ? (
                   <Image
-                    src={worksheetUrl}
+                    src={activeWorksheet?.previewUrl || worksheetUrl}
                     alt={`${material.title} 활동지 미리보기`}
                     width={900}
                     height={1200}

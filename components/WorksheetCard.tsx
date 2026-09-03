@@ -27,9 +27,9 @@ export default function WorksheetCard({ material, settings, onClick, onDownload 
   const activePageCount = activeWorksheet
     ? isWorksheetImage(activeWorksheet.url)
       ? 1
-      : pageCounts[activeFileIndex] ?? 1
+      : pageCounts[activeFileIndex] ?? activeWorksheet.pageCount
     : 0;
-  const slideCounts = worksheetFiles.map((file, index) => isWorksheetImage(file.url) ? 1 : pageCounts[index] ?? 1);
+  const slideCounts = worksheetFiles.map((file, index) => isWorksheetImage(file.url) ? 1 : pageCounts[index] ?? file.pageCount);
   const totalSlideCount = slideCounts.reduce((total, count) => total + count, 0);
   const currentSlideNumber = slideCounts.slice(0, activeFileIndex).reduce((total, count) => total + count, 0) + activePage;
 
@@ -88,10 +88,10 @@ export default function WorksheetCard({ material, settings, onClick, onDownload 
         }}
       >
         {activeWorksheet ? (
-          isWorksheetImage(activeWorksheet.url) ? (
+          isWorksheetImage(activeWorksheet.url) || (activePage === 1 && activeWorksheet.previewUrl) ? (
             <Image
-              key={activeWorksheet.url}
-              src={activeWorksheet.url}
+              key={activeWorksheet.previewUrl || activeWorksheet.url}
+              src={activeWorksheet.previewUrl || activeWorksheet.url}
               alt={`${material.title} 활동지 ${currentSlideNumber} 미리보기`}
               fill
               unoptimized

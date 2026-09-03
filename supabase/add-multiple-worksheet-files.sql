@@ -7,6 +7,12 @@ add column if not exists worksheet_urls text[] not null default '{}';
 alter table public.ppt_materials
 add column if not exists worksheet_file_names text[] not null default '{}';
 
+alter table public.ppt_materials
+add column if not exists worksheet_preview_urls text[] not null default '{}';
+
+alter table public.ppt_materials
+add column if not exists worksheet_page_counts integer[] not null default '{}';
+
 -- 기존 단일 활동지 데이터를 배열 컬럼으로 옮깁니다.
 update public.ppt_materials
 set

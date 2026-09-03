@@ -28,6 +28,8 @@ create table if not exists public.ppt_materials (
   worksheet_file_name text,
   worksheet_urls text[] not null default '{}',
   worksheet_file_names text[] not null default '{}',
+  worksheet_preview_urls text[] not null default '{}',
+  worksheet_page_counts integer[] not null default '{}',
   is_downloadable boolean default true,
   sort_order integer default 0,
   created_at timestamp with time zone default now(),
@@ -83,6 +85,12 @@ add column if not exists worksheet_urls text[] not null default '{}';
 
 alter table public.ppt_materials
 add column if not exists worksheet_file_names text[] not null default '{}';
+
+alter table public.ppt_materials
+add column if not exists worksheet_preview_urls text[] not null default '{}';
+
+alter table public.ppt_materials
+add column if not exists worksheet_page_counts integer[] not null default '{}';
 
 update public.ppt_materials
 set

@@ -7,6 +7,7 @@ import { createDownloadFileName } from "@/lib/download-utils";
 import {
   createSafeStorageFileName,
   getFileExtension,
+  isAllowedImageFile,
   isAllowedPptFile,
   isAllowedWorksheetFile,
   parseTagsInput
@@ -14,6 +15,7 @@ import {
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AgeGroup, Category, CategoryGroup, LibrarySection, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
 import { getWorksheetFiles } from "@/lib/worksheet-utils";
+import { createWorksheetPdfPreview } from "@/lib/worksheet-preview";
 
 type Props = {
   categories: Category[];
@@ -37,6 +39,8 @@ const emptyForm: MaterialFormState = {
   worksheet_file_name: "",
   worksheet_urls: [],
   worksheet_file_names: [],
+  worksheet_preview_urls: [],
+  worksheet_page_counts: [],
   is_downloadable: true,
   sort_order: 0
 };
@@ -55,6 +59,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isOptimizingWorksheets, setIsOptimizingWorksheets] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [downloadFilter, setDownloadFilter] = useState("all");
@@ -134,7 +139,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     const path = createSafeStorageFileName(file.name);
     const { error } = await supabase.storage.from(bucket).upload(path, file, {
       upsert: false,
-      ...(bucket === "thumbnails" ? { cacheControl: "31536000" } : {})
+      ...(bucket === "thumbnails" || bucket === "worksheet-files" ? { cacheControl: "31536000" } : {})
     });
     setIsUploading(false);
 
@@ -173,10 +178,13 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setIsUploading(true);
     setMessage(`활동지 ${files.length}개를 업로드하고 있습니다...`);
 
-    const uploaded: Array<{ url: string; fileName: string }> = [];
+    const uploaded: Array<{ url: string; fileName: string; previewUrl: string; pageCount: number }> = [];
     for (const file of files) {
       const path = createSafeStorageFileName(file.name);
-      const { error } = await supabase.storage.from("worksheet-files").upload(path, file, { upsert: false });
+      const { error } = await supabase.storage.from("worksheet-files").upload(path, file, {
+        upsert: false,
+        cacheControl: "31536000"
+      });
       if (error) {
         console.error("Worksheet upload failed", error);
         setIsUploading(false);
@@ -187,7 +195,30 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       }
 
       const { data } = supabase.storage.from("worksheet-files").getPublicUrl(path);
-      uploaded.push({ url: data.publicUrl, fileName: file.name });
+      let previewUrl = data.publicUrl;
+      let pageCount = 1;
+
+      if (!isAllowedImageFile(file)) {
+        try {
+          setMessage(`${file.name} 미리보기 이미지를 만들고 있습니다...`);
+          const preview = await createWorksheetPdfPreview(file);
+          const previewPath = `previews/${createSafeStorageFileName(`${file.name}.webp`)}`;
+          const previewUpload = await supabase.storage.from("worksheet-files").upload(previewPath, preview.blob, {
+            upsert: false,
+            cacheControl: "31536000",
+            contentType: "image/webp"
+          });
+          if (previewUpload.error) throw previewUpload.error;
+
+          previewUrl = supabase.storage.from("worksheet-files").getPublicUrl(previewPath).data.publicUrl;
+          pageCount = preview.pageCount;
+        } catch (error) {
+          console.error("Worksheet preview generation failed", error);
+          previewUrl = "";
+        }
+      }
+
+      uploaded.push({ url: data.publicUrl, fileName: file.name, previewUrl, pageCount });
     }
 
     appendWorksheetFiles(uploaded);
@@ -196,7 +227,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     event.target.value = "";
   }
 
-  function appendWorksheetFiles(files: Array<{ url: string; fileName: string }>) {
+  function appendWorksheetFiles(files: Array<{ url: string; fileName: string; previewUrl: string; pageCount: number }>) {
     if (files.length === 0) return;
     setForm((current) => {
       const existingUrls = current.worksheet_urls.length > 0
@@ -209,15 +240,21 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
         : current.worksheet_file_name
           ? [current.worksheet_file_name]
           : [];
+      const existingPreviews = current.worksheet_preview_urls ?? [];
+      const existingPageCounts = current.worksheet_page_counts ?? [];
       const worksheetUrls = [...existingUrls, ...files.map((file) => file.url)];
       const worksheetFileNames = [...existingNames, ...files.map((file) => file.fileName)];
+      const worksheetPreviewUrls = [...existingPreviews, ...files.map((file) => file.previewUrl)];
+      const worksheetPageCounts = [...existingPageCounts, ...files.map((file) => file.pageCount)];
 
       return {
         ...current,
         worksheet_url: worksheetUrls[0] ?? "",
         worksheet_file_name: worksheetFileNames[0] ?? "",
         worksheet_urls: worksheetUrls,
-        worksheet_file_names: worksheetFileNames
+        worksheet_file_names: worksheetFileNames,
+        worksheet_preview_urls: worksheetPreviewUrls,
+        worksheet_page_counts: worksheetPageCounts
       };
     });
   }
@@ -226,14 +263,81 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     setForm((current) => {
       const worksheetUrls = current.worksheet_urls.filter((_, itemIndex) => itemIndex !== index);
       const worksheetFileNames = current.worksheet_file_names.filter((_, itemIndex) => itemIndex !== index);
+      const worksheetPreviewUrls = current.worksheet_preview_urls.filter((_, itemIndex) => itemIndex !== index);
+      const worksheetPageCounts = current.worksheet_page_counts.filter((_, itemIndex) => itemIndex !== index);
       return {
         ...current,
         worksheet_url: worksheetUrls[0] ?? "",
         worksheet_file_name: worksheetFileNames[0] ?? "",
         worksheet_urls: worksheetUrls,
-        worksheet_file_names: worksheetFileNames
+        worksheet_file_names: worksheetFileNames,
+        worksheet_preview_urls: worksheetPreviewUrls,
+        worksheet_page_counts: worksheetPageCounts
       };
     });
+  }
+
+  async function optimizeExistingWorksheetPreviews() {
+    const candidates = materials.filter((material) =>
+      getWorksheetFiles(material).some((file) => !file.previewUrl && !isImageUrl(file.url))
+    );
+    if (candidates.length === 0) {
+      setMessage("최적화가 필요한 기존 활동지가 없습니다.");
+      return;
+    }
+
+    setIsOptimizingWorksheets(true);
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let materialIndex = 0; materialIndex < candidates.length; materialIndex += 1) {
+      const material = candidates[materialIndex];
+      const worksheetFiles = getWorksheetFiles(material);
+      setMessage(`기존 활동지 미리보기를 생성하고 있습니다. (${materialIndex + 1}/${candidates.length})`);
+
+      try {
+        const previewUrls: string[] = [];
+        const pageCounts: number[] = [];
+
+        for (const file of worksheetFiles) {
+          if (file.previewUrl || isImageUrl(file.url)) {
+            previewUrls.push(file.previewUrl || file.url);
+            pageCounts.push(file.pageCount || 1);
+            continue;
+          }
+
+          const preview = await createWorksheetPdfPreview(file.url);
+          const previewPath = `previews/${createSafeStorageFileName(`${file.fileName}.webp`)}`;
+          const previewUpload = await supabase.storage.from("worksheet-files").upload(previewPath, preview.blob, {
+            upsert: false,
+            cacheControl: "31536000",
+            contentType: "image/webp"
+          });
+          if (previewUpload.error) throw previewUpload.error;
+
+          previewUrls.push(supabase.storage.from("worksheet-files").getPublicUrl(previewPath).data.publicUrl);
+          pageCounts.push(preview.pageCount);
+        }
+
+        const updateResult = await supabase
+          .from("ppt_materials")
+          .update({ worksheet_preview_urls: previewUrls, worksheet_page_counts: pageCounts })
+          .eq("id", material.id);
+        if (updateResult.error) throw updateResult.error;
+        successCount += 1;
+      } catch (error) {
+        console.error("Existing worksheet preview optimization failed", error);
+        failedCount += 1;
+      }
+    }
+
+    setIsOptimizingWorksheets(false);
+    setMessage(
+      failedCount > 0
+        ? `활동지 미리보기 최적화 완료: 성공 ${successCount}개, 실패 ${failedCount}개`
+        : `기존 활동지 ${successCount}개의 미리보기 최적화가 완료되었습니다.`
+    );
+    await onChanged();
   }
 
   function editMaterial(material: PptMaterialWithCategory) {
@@ -254,6 +358,8 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       worksheet_file_name: material.worksheet_file_name ?? "",
       worksheet_urls: worksheetFiles.map((file) => file.url),
       worksheet_file_names: worksheetFiles.map((file) => file.fileName),
+      worksheet_preview_urls: worksheetFiles.map((file) => file.previewUrl),
+      worksheet_page_counts: worksheetFiles.map((file) => file.pageCount),
       is_downloadable: material.is_downloadable,
       sort_order: material.sort_order
     });
@@ -302,6 +408,8 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       worksheet_file_name: form.worksheet_file_name || null,
       worksheet_urls: form.worksheet_urls,
       worksheet_file_names: form.worksheet_file_names,
+      worksheet_preview_urls: form.worksheet_preview_urls,
+      worksheet_page_counts: form.worksheet_page_counts,
       is_downloadable: form.is_downloadable,
       sort_order: Number(form.sort_order)
     };
@@ -322,7 +430,12 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
         setMessage("자료 노출 영역을 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-library-sections.sql 전체를 실행해주세요.");
         return;
       }
-      if (isMissingDatabaseColumn(result.error, "worksheet_urls") || isMissingDatabaseColumn(result.error, "worksheet_file_names")) {
+      if (
+        isMissingDatabaseColumn(result.error, "worksheet_urls") ||
+        isMissingDatabaseColumn(result.error, "worksheet_file_names") ||
+        isMissingDatabaseColumn(result.error, "worksheet_preview_urls") ||
+        isMissingDatabaseColumn(result.error, "worksheet_page_counts")
+      ) {
         setMessage("여러 활동지를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-multiple-worksheet-files.sql 전체를 실행해주세요.");
         return;
       }
@@ -352,7 +465,7 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     const storageDeleteErrors = await removeMaterialFiles(
       material.thumbnail_url,
       material.file_url,
-      getWorksheetFiles(material).map((file) => file.url)
+      getWorksheetFiles(material).flatMap((file) => [file.url, file.previewUrl]).filter(Boolean)
     );
     setMessage(storageDeleteErrors ? "자료가 삭제되었습니다. 일부 Storage 파일은 삭제하지 못했습니다." : "자료가 삭제되었습니다.");
     if (form.id === material.id) closeForm();
@@ -381,9 +494,19 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
             <h2 className="text-lg font-bold">PPT 자료 관리</h2>
             <p className="mt-1 text-sm text-gray-500">자료를 검색하고, 카테고리와 다운로드 상태로 필터링할 수 있습니다.</p>
           </div>
-          <button type="button" onClick={openCreateForm} className="rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white">
-            새 자료 추가
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={optimizeExistingWorksheetPreviews}
+              disabled={isOptimizingWorksheets || isUploading || isSaving}
+              className="rounded-md border border-emerald-700 px-4 py-2 text-sm font-bold text-emerald-700 disabled:opacity-50"
+            >
+              {isOptimizingWorksheets ? "미리보기 생성 중..." : "기존 활동지 미리보기 일괄 생성"}
+            </button>
+            <button type="button" onClick={openCreateForm} className="rounded-md bg-gray-900 px-4 py-2 text-sm font-bold text-white">
+              새 자료 추가
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_220px_180px]">
@@ -765,6 +888,10 @@ function getStorageObject(bucket: MaterialStorageBucket, publicUrl: string | nul
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("ko-KR");
+}
+
+function isImageUrl(url: string) {
+  return ["jpg", "jpeg", "png", "webp"].includes(getFileExtension(url.split("?")[0]));
 }
 
 function FileField({

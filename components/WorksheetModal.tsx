@@ -28,9 +28,9 @@ export default function WorksheetModal({ material, settings, onClose, onDownload
   const activePageCount = activeWorksheet
     ? isWorksheetImage(activeWorksheet.url)
       ? 1
-      : pageCounts[activeFileIndex] ?? 1
+      : pageCounts[activeFileIndex] ?? activeWorksheet.pageCount
     : 0;
-  const slideCounts = worksheetFiles.map((file, index) => isWorksheetImage(file.url) ? 1 : pageCounts[index] ?? 1);
+  const slideCounts = worksheetFiles.map((file, index) => isWorksheetImage(file.url) ? 1 : pageCounts[index] ?? file.pageCount);
   const totalSlideCount = slideCounts.reduce((total, count) => total + count, 0);
   const currentSlideNumber = slideCounts.slice(0, activeFileIndex).reduce((total, count) => total + count, 0) + activePage;
 
@@ -83,9 +83,9 @@ export default function WorksheetModal({ material, settings, onClose, onDownload
       >
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-gray-100 p-3 sm:p-5">
           <div className="relative aspect-[210/297] h-[72vh] max-h-[900px] max-w-full overflow-hidden bg-white shadow-lg">
-            {isWorksheetImage(worksheetUrl) ? (
+            {isWorksheetImage(worksheetUrl) || (activePage === 1 && activeWorksheet?.previewUrl) ? (
               <Image
-                src={worksheetUrl}
+                src={activeWorksheet?.previewUrl || worksheetUrl}
                 alt={`${material.title} 활동지 미리보기`}
                 fill
                 unoptimized

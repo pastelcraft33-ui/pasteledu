@@ -5,6 +5,12 @@ import { Document, Page, pdfjs } from "react-pdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
+const pdfDocumentOptions = {
+  disableAutoFetch: true,
+  disableStream: true,
+  rangeChunkSize: 65536
+};
+
 type Props = {
   url: string;
   pageNumber: number;
@@ -31,6 +37,7 @@ export default function WorksheetPdfPage({ url, pageNumber, onPageCount, loading
     <div ref={containerRef} className="flex h-full w-full items-start justify-center overflow-hidden bg-white">
       <Document
         file={url}
+        options={pdfDocumentOptions}
         onLoadSuccess={({ numPages }) => onPageCount(numPages)}
         loading={<PreviewStatus label={loadingLabel} />}
         error={<PreviewStatus label="활동지 미리보기를 불러오지 못했습니다." />}
@@ -39,6 +46,7 @@ export default function WorksheetPdfPage({ url, pageNumber, onPageCount, loading
         <Page
           pageNumber={pageNumber}
           width={width}
+          devicePixelRatio={1}
           renderAnnotationLayer={false}
           renderTextLayer={false}
           loading={<PreviewStatus label={loadingLabel} />}
