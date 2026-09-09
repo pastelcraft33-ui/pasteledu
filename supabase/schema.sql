@@ -142,7 +142,7 @@ create table if not exists public.site_settings (
   elementary_banner_title text default '초등관 수업자료',
   elementary_banner_description text default '초등 수업에 바로 활용할 수 있는 자료를 모았습니다.',
   elementary_banner_image_url text,
-  senior_banner_title text default '시니어관 수업자료',
+  senior_banner_title text default '실버관 수업자료',
   senior_banner_description text default '시니어 학습과 활동을 위한 자료를 만나보세요.',
   senior_banner_image_url text,
   default_column_color text default '#ffffff',
@@ -182,7 +182,7 @@ add column if not exists elementary_banner_description text default '초등 수�
 alter table public.site_settings
 add column if not exists elementary_banner_image_url text;
 alter table public.site_settings
-add column if not exists senior_banner_title text default '시니어관 수업자료';
+add column if not exists senior_banner_title text default '실버관 수업자료';
 alter table public.site_settings
 add column if not exists senior_banner_description text default '시니어 학습과 활동을 위한 자료를 만나보세요.';
 alter table public.site_settings
@@ -274,7 +274,7 @@ select
   '유아 눈높이에 맞춘 즐거운 수업자료를 확인해보세요.',
   '초등관 수업자료',
   '초등 수업에 바로 활용할 수 있는 자료를 모았습니다.',
-  '시니어관 수업자료',
+  '실버관 수업자료',
   '시니어 학습과 활동을 위한 자료를 만나보세요.',
   '#ffffff',
   '#ffffff',

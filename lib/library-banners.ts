@@ -24,7 +24,7 @@ export const libraryBannerDefaults: Record<LibrarySection, LibraryBannerDefault>
     legacyTitle: "초등관 수업자료"
   },
   senior: {
-    title: "시니어 전통수업",
+    title: "실버 전통수업",
     description: "시니어 학습과 활동을 위한 자료를 만나보세요.",
     imageUrl: "/banner-senior-clouds.png",
     textColor: "#5f5b66",

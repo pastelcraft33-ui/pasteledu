@@ -12,7 +12,7 @@ type Props = {
 const sections: Array<{ id: LibrarySection; label: string; icon: LucideIcon; accent: string }> = [
   { id: "kindergarten", label: "유치원관", icon: Baby, accent: "#D85C8A" },
   { id: "elementary", label: "초등관", icon: GraduationCap, accent: "#3983C5" },
-  { id: "senior", label: "시니어관", icon: HeartHandshake, accent: "#6F8465" }
+  { id: "senior", label: "실버관", icon: HeartHandshake, accent: "#6F8465" }
 ];
 
 export default function LibrarySectionNav({ activeSection, onChange, textColor, backgroundColor, borderColor }: Props) {

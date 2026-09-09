@@ -28,7 +28,7 @@ const content: Record<LibraryView, { title: string; description: string }> = {
     description: "초등 수업에 바로 활용할 수 있는 자료를 모았습니다."
   },
   senior: {
-    title: "시니어관 수업자료",
+    title: "실버관 수업자료",
     description: "시니어 학습과 활동을 위한 자료를 만나보세요."
   }
 };

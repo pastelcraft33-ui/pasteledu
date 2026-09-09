@@ -571,7 +571,7 @@ function getMaterialLibrarySections(material: PptMaterial): LibrarySection[] {
 
 function getLibrarySectionLabel(section: LibrarySection) {
   if (section === "kindergarten") return "유치원관";
-  if (section === "senior") return "시니어관";
+  if (section === "senior") return "실버관";
   return "초등관";
 }
 

@@ -198,7 +198,7 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
             >
               <option value="kindergarten">유치원관</option>
               <option value="elementary">초등관</option>
-              <option value="senior">시니어관</option>
+              <option value="senior">실버관</option>
             </select>
             <p className="mt-1 text-xs text-gray-500">대량 등록 후 PPT 자료 관리에서 여러 관으로 변경할 수 있습니다.</p>
           </label>

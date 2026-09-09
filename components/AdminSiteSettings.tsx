@@ -244,7 +244,7 @@ export default function AdminSiteSettings({ settings, onChanged, setMessage }: P
             onImageRemove={() => updateField("elementary_banner_image_url", "")}
           />
           <BannerEditor
-            label="시니어관"
+            label="실버관"
             imageUrl={form.senior_banner_image_url}
             onImageChange={(event) => uploadAsset(event, "senior_banner_image_url")}
             onImageUrlChange={(value) => updateField("senior_banner_image_url", value)}

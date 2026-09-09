@@ -50,7 +50,7 @@ const ageGroupOptions: AgeGroup[] = ["유치부", "저학년", "고학년", "중
 const librarySectionOptions: Array<{ id: LibrarySection; label: string }> = [
   { id: "kindergarten", label: "유치원관" },
   { id: "elementary", label: "초등관" },
-  { id: "senior", label: "시니어관" }
+  { id: "senior", label: "실버관" }
 ];
 
 export default function AdminMaterials({ categories, materials, onChanged, setMessage }: Props) {

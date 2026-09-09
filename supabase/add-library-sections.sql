@@ -1,4 +1,4 @@
--- 메인 자료실의 유치원관/초등관/시니어관 분류를 추가합니다.
+-- 메인 자료실의 유치원관/초등관/실버관 분류를 추가합니다.
 -- Supabase Dashboard > SQL Editor에서 이 파일 전체를 실행하세요.
 
 alter table public.ppt_materials
