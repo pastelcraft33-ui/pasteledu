@@ -6,3 +6,10 @@ add column if not exists month_banner_image_url text;
 
 alter table public.site_settings
 add column if not exists subject_banner_image_url text;
+
+
+
+
+
+
+
