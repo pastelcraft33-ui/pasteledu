@@ -161,8 +161,8 @@ function buildStats(materials: PptMaterialWithCategory[], events: PptMaterialEve
     })
     .sort(
       (a, b) =>
-        b.downloadCount - a.downloadCount ||
         b.clickCount - a.clickCount ||
+        b.downloadCount - a.downloadCount ||
         b.totalDurationSeconds - a.totalDurationSeconds ||
         a.material.title.localeCompare(b.material.title)
     );

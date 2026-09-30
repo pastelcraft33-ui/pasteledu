@@ -15,10 +15,10 @@ export default function BoardHeader({ onHome }: Props) {
       aria-label="메인 화면으로 이동"
     >
       <Image
-        src="/pastel-edu-color-logo.png"
+        src="/pastel-edu-header-logo.jpeg"
         alt="파스텔에듀"
-        width={1632}
-        height={403}
+        width={1090}
+        height={280}
         priority
         className="h-auto w-[190px] max-w-full object-contain sm:w-[250px] lg:w-[300px]"
       />
