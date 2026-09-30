@@ -84,7 +84,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
       const request = Promise.all([
         supabase.from("site_settings").select("*").order("created_at", { ascending: true }).limit(1).maybeSingle(),
         supabase.from("categories").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-        supabase.from("ppt_materials").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+        supabase.from("ppt_materials").select("*").order("created_at", { ascending: false })
       ]);
       const result = await Promise.race([request, timeout]);
 
@@ -446,30 +446,18 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
         {shouldShowBoard ? (
           <div className="mx-auto min-h-[620px] max-w-7xl space-y-8">
-            {isHome
-              ? librarySections.map((section, sectionIndex) => {
-                  const sectionMaterials = filteredMaterials
-                    .filter((material) => getMaterialLibrarySections(material).includes(section))
-                    .slice(0, 8);
-                  const sectionBanner = getLibraryBannerSettings(section, viewSettings);
-
-                  return (
-                    <CategoryColumn
-                      key={section}
-                      category={null}
-                      titleOverride={sectionBanner.title}
-                      descriptionOverride={sectionBanner.description}
-                      materials={sectionMaterials}
-                      hasMaterials
-                      settings={viewSettings}
-                      onSelectMaterial={openMaterial}
-                      onDownloadMaterial={recordDownload}
-                      onViewAll={() => setActiveView(section)}
-                      prioritizeFirstRow={sectionIndex === 0}
-                    />
-                  );
-                })
-              : null}
+            {isHome ? (
+              <CategoryColumn
+                category={null}
+                titleOverride="파스텔 에듀 컨텐츠"
+                descriptionOverride="새로 등록된 자료부터 최신순으로 보여드립니다."
+                materials={filteredMaterials}
+                settings={viewSettings}
+                onSelectMaterial={openMaterial}
+                onDownloadMaterial={recordDownload}
+                prioritizeFirstRow
+              />
+            ) : null}
             {activeLibrarySection ? (
               <CategoryColumn
                 category={null}
@@ -562,8 +550,6 @@ const categoryGroupTabs: Array<{ id: CategoryGroup | "worksheet"; label: string;
   { id: "subject", label: "주제별", icon: Shapes, accent: "#7557B7" },
   { id: "worksheet", label: "활동지", icon: FileText, accent: "#168C7A" }
 ];
-
-const librarySections: LibrarySection[] = ["kindergarten", "elementary", "senior"];
 
 function getMaterialLibrarySections(material: PptMaterial): LibrarySection[] {
   return material.library_sections?.length ? material.library_sections : ["elementary"];

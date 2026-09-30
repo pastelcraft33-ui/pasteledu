@@ -16,7 +16,7 @@ export default async function HomePage() {
   ] = await Promise.all([
     supabase.from("site_settings").select("*").order("created_at", { ascending: true }).limit(1).maybeSingle(),
     supabase.from("categories").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-    supabase.from("ppt_materials").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+    supabase.from("ppt_materials").select("*").order("created_at", { ascending: false })
   ]);
   const dataError = settingsError ?? categoriesError ?? materialsError;
 
