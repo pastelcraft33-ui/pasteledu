@@ -20,12 +20,12 @@ type MaterialStats = {
 type PeriodFilter = "all" | "7days" | "30days" | "thisMonth" | "custom";
 
 const chartColors = ["#f28ca8", "#82b6e8", "#79c7b2", "#efc767", "#aa98d6"];
-const chartWidth = 720;
-const chartHeight = 300;
-const chartLeft = 56;
-const chartRight = 700;
-const chartTop = 24;
-const chartBottom = 222;
+const chartWidth = 800;
+const chartHeight = 340;
+const chartLeft = 78;
+const chartRight = 780;
+const chartTop = 28;
+const chartBottom = 270;
 
 export default function AdminAnalytics({ materials, setMessage }: Props) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
@@ -83,8 +83,7 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
     });
   }, [events, periodRange]);
   const stats = useMemo(() => buildStats(materials, filteredEvents), [filteredEvents, materials]);
-  const topClickedMaterials = stats.filter((item) => item.clickCount > 0).slice(0, 5);
-  const topClickCount = topClickedMaterials[0]?.clickCount ?? 0;
+  const recentTrend = useMemo(() => buildRecentTrend(materials, events), [events, materials]);
   const totalClicks = stats.reduce((sum, item) => sum + item.clickCount, 0);
   const totalDownloads = stats.reduce((sum, item) => sum + item.downloadCount, 0);
   const totalDurationSeconds = stats.reduce((sum, item) => sum + item.totalDurationSeconds, 0);
@@ -158,28 +157,29 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
       <section className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h3 className="text-lg font-bold">클릭 TOP 5</h3>
-            <p className="mt-1 text-sm text-gray-500">선택한 기간의 자료별 클릭 횟수</p>
+            <h3 className="text-lg font-bold">자료별 최근 14일 조회수 TOP 5</h3>
+            <p className="mt-1 text-sm text-gray-500">최근 14일 동안 상위 5개 자료의 날짜별 PPT 조회 추이</p>
           </div>
-          <span className="text-sm text-gray-500">{getPeriodLabel(period, customFrom, customTo)}</span>
+          <span className="text-sm text-gray-500">{recentTrend.dates[0]?.label} ~ {recentTrend.dates[recentTrend.dates.length - 1]?.label}</span>
         </div>
         {isLoading ? <p className="mt-4 text-sm text-gray-500">통계를 불러오는 중...</p> : null}
-        {!isLoading && topClickedMaterials.length === 0 ? (
+        {!isLoading && recentTrend.items.length === 0 ? (
           <p className="mt-4 rounded-md border border-dashed p-6 text-center text-sm text-gray-500">
-            선택한 기간에 클릭 기록이 없습니다.
+            최근 14일 조회 기록이 없습니다.
           </p>
         ) : null}
-        {!isLoading && topClickedMaterials.length > 0 ? (
+        {!isLoading && recentTrend.items.length > 0 ? (
           <div className="mt-5">
-            <ClickLineChart items={topClickedMaterials} maxValue={topClickCount} />
+            <ClickLineChart dates={recentTrend.dates} items={recentTrend.items} />
             <ol className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-              {topClickedMaterials.map((item, index) => (
+              {recentTrend.items.map((item, index) => (
                 <li key={item.material.id} className="flex min-w-0 items-center gap-2 text-sm">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColors[index] }} />
                   <span className="shrink-0 font-bold text-gray-500">{index + 1}위</span>
-                  <span className="truncate font-medium text-gray-800" title={item.material.title}>
+                  <span className="truncate font-medium text-gray-800" title={item.material.title + " · " + item.total + "회"}>
                     {item.material.title}
                   </span>
+                  <span className="shrink-0 text-gray-500">{item.total}회</span>
                 </li>
               ))}
             </ol>
@@ -280,47 +280,91 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ClickLineChart({ items, maxValue }: { items: MaterialStats[]; maxValue: number }) {
+type TrendDate = { key: string; label: string };
+type TrendItem = { material: PptMaterialWithCategory; counts: number[]; total: number };
+
+function buildRecentTrend(materials: PptMaterialWithCategory[], events: PptMaterialEvent[]) {
+  const today = new Date();
+  const dates: TrendDate[] = [];
+  for (let offset = 13; offset >= 0; offset -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    dates.push({
+      key: dateKey(date),
+      label: (date.getMonth() + 1) + "/" + date.getDate()
+    });
+  }
+
+  const dateIndexes = new Map(dates.map((date, index) => [date.key, index]));
+  const materialById = new Map(materials.map((material) => [material.id, material]));
+  const countsByMaterial = new Map<string, number[]>();
+  events.forEach((event) => {
+    if (event.event_type !== "click" || !event.material_id || !materialById.has(event.material_id)) return;
+    const timestamp = new Date(event.created_at);
+    if (Number.isNaN(timestamp.getTime())) return;
+    const dateIndex = dateIndexes.get(dateKey(timestamp));
+    if (dateIndex === undefined) return;
+    const counts = countsByMaterial.get(event.material_id) ?? Array(dates.length).fill(0);
+    counts[dateIndex] += 1;
+    countsByMaterial.set(event.material_id, counts);
+  });
+
+  const rankedMaterials = materials.map((material) => {
+    const counts = countsByMaterial.get(material.id) ?? Array(dates.length).fill(0);
+    return { material, counts, total: counts.reduce((sum, count) => sum + count, 0) };
+  });
+  const items = rankedMaterials
+    .sort((a, b) => b.total - a.total || a.material.title.localeCompare(b.material.title))
+    .slice(0, 5);
+
+  return { dates, items: items.some((item) => item.total > 0) ? items : [] };
+}
+
+function dateKey(date: Date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+}
+
+function ClickLineChart({ dates, items }: { dates: TrendDate[]; items: TrendItem[] }) {
   const plotWidth = chartRight - chartLeft;
   const plotHeight = chartBottom - chartTop;
-  const points = items.map((item, index) => {
-    const x = items.length === 1 ? chartLeft + plotWidth / 2 : chartLeft + (plotWidth * index) / (items.length - 1);
-    const y = chartBottom - (item.clickCount / maxValue) * plotHeight;
-    return { item, index, x, y };
-  });
-  const linePoints = points.map(({ x, y }) => `${x},${y}`).join(" ");
-  const tickValues = Array.from({ length: 5 }, (_, index) => Math.round((maxValue * (4 - index)) / 4));
+  const maxDailyCount = Math.max(0, ...items.flatMap((item) => item.counts));
+  const axisMax = Math.max(4, Math.ceil(maxDailyCount / 4) * 4);
+  const tickValues = Array.from({ length: 5 }, (_, index) => (axisMax * (4 - index)) / 4);
+  const xForIndex = (index: number) => chartLeft + (plotWidth * index) / (dates.length - 1);
+  const yForCount = (count: number) => chartBottom - (count / axisMax) * plotHeight;
 
   return (
-    <div className="w-full overflow-hidden" role="img" aria-label="클릭 횟수 상위 자료 5개의 선 그래프">
+    <div className="w-full overflow-hidden" role="img" aria-label="최근 14일 동안 상위 자료 5개의 날짜별 조회수 선 그래프">
       <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-auto w-full" preserveAspectRatio="xMinYMin meet">
         {tickValues.map((value, index) => {
           const y = chartTop + (plotHeight * index) / 4;
           return (
             <g key={`${value}-${index}`}>
               <line x1={chartLeft} x2={chartRight} y1={y} y2={y} stroke="#e5e7eb" strokeDasharray="4 5" />
-              <text x={chartLeft - 10} y={y + 4} textAnchor="end" fill="#6b7280" fontSize="12">
-                {value}
-              </text>
+              <text x={chartLeft - 10} y={y + 4} textAnchor="end" fill="#6b7280" fontSize="12">{value}</text>
             </g>
           );
         })}
         <line x1={chartLeft} x2={chartLeft} y1={chartTop} y2={chartBottom} stroke="#d1d5db" />
         <line x1={chartLeft} x2={chartRight} y1={chartBottom} y2={chartBottom} stroke="#d1d5db" />
-        {points.length > 1 ? (
-          <polyline points={linePoints} fill="none" stroke="#6d7fbd" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        ) : null}
-        {points.map(({ item, index, x, y }) => (
-          <g key={item.material.id}>
-            <circle cx={x} cy={y} r="7" fill={chartColors[index]} stroke="white" strokeWidth="2" />
-            <text x={x} y={y - 13} textAnchor="middle" fill="#374151" fontSize="12" fontWeight="700">
-              {item.clickCount}회
-            </text>
-            <text x={x} y={chartBottom + 25} textAnchor="middle" fill="#6b7280" fontSize="12">
-              {index + 1}위
-            </text>
-          </g>
+        <text x="18" y={(chartTop + chartBottom) / 2} textAnchor="middle" fill="#4b5563" fontSize="12" fontWeight="600" transform={`rotate(-90 18 ${(chartTop + chartBottom) / 2})`}>
+          조회수 (회)
+        </text>
+        {dates.map((date, index) => (
+          <text key={date.key} x={xForIndex(index)} y={chartBottom + 22} textAnchor="middle" fill="#6b7280" fontSize="10">
+            {date.label}
+          </text>
         ))}
+        {items.map((item, itemIndex) => {
+          const points = item.counts.map((count, dateIndex) => `${xForIndex(dateIndex)},${yForCount(count)}`).join(" ");
+          return (
+            <g key={item.material.id}>
+              <polyline points={points} fill="none" stroke={chartColors[itemIndex]} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              {item.counts.map((count, dateIndex) => count > 0 ? (
+                <circle key={`${item.material.id}-${dates[dateIndex].key}`} cx={xForIndex(dateIndex)} cy={yForCount(count)} r="3" fill={chartColors[itemIndex]} stroke="white" strokeWidth="1" />
+              ) : null)}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
@@ -362,14 +406,6 @@ function getPeriodRange(period: PeriodFilter, customFrom: string, customTo: stri
     to,
     valid: from === null || to === null || from < to
   };
-}
-
-function getPeriodLabel(period: PeriodFilter, customFrom: string, customTo: string) {
-  if (period === "all") return "전체 기간";
-  if (period === "7days") return "최근 7일";
-  if (period === "30days") return "최근 30일";
-  if (period === "thisMonth") return "이번 달";
-  return `${customFrom || "시작일 미선택"} ~ ${customTo || "종료일 미선택"}`;
 }
 
 function formatDuration(seconds: number) {
