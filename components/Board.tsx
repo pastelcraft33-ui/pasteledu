@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CalendarDays, FileText, Shapes, ShoppingBag, type LucideIcon } from "lucide-react";
 import BoardHeader from "@/components/BoardHeader";
-import CategoryOverviewModal from "@/components/CategoryOverviewModal";
 import CategoryColumn from "@/components/CategoryColumn";
 import EmptyState from "@/components/EmptyState";
 import LibraryBanner from "@/components/LibraryBanner";
 import HomeBanner from "@/components/HomeBanner";
 import { getHomeBanners } from "@/lib/home-banners";
+import { categoryHref } from "@/lib/library-navigation";
 import LibrarySectionNav from "@/components/LibrarySectionNav";
 import MaterialModal from "@/components/MaterialModal";
 import WorksheetModal from "@/components/WorksheetModal";
@@ -24,6 +26,8 @@ type Props = {
   categories: Category[];
   materials: PptMaterial[];
   hasDataError?: boolean;
+  initialView?: ActiveLibraryView;
+  categoryId?: string;
 };
 
 type ActiveLibraryView = LibraryView | "worksheet" | "home";
@@ -59,13 +63,13 @@ const fallbackSettings: Omit<SiteSettings, "id" | "created_at" | "updated_at"> =
   use_card_shadow: true
 };
 
-export default function Board({ settings, categories, materials, hasDataError = false }: Props) {
+export default function Board({ settings, categories, materials, hasDataError = false, initialView = "home", categoryId }: Props) {
+  const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [query, setQuery] = useState("");
-  const [activeView, setActiveView] = useState<ActiveLibraryView>("home");
+  const activeView = initialView;
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
   const [selectedMaterialMode, setSelectedMaterialMode] = useState<"ppt" | "worksheet">("ppt");
-  const [overviewCategory, setOverviewCategory] = useState<Category | null>(null);
   const [urlMaterialId, setUrlMaterialId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [clientSettings, setClientSettings] = useState<SiteSettings | null>(settings);
@@ -206,20 +210,27 @@ export default function Board({ settings, categories, materials, hasDataError = 
   }
 
   function goHome() {
-    setActiveView("home");
     setQuery("");
-    setOverviewCategory(null);
     setSelectedMaterial(null);
     setUrlMaterialId(null);
-    updateMaterialUrl(null, selectedMaterialMode);
+    router.push("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function navigateView(view: ActiveLibraryView) {
+    router.push(isCategoryGroup(view) ? categoryHref(view) : view === "home" ? "/" : "/?view=" + view);
   }
 
   const isHome = activeView === "home";
   const activeCategoryGroup = isCategoryGroup(activeView) ? activeView : null;
   const activeLibrarySection = isLibrarySection(activeView) ? activeView : null;
+  const detailCategory = categoryId ? clientCategories.find((category) => category.id === categoryId) : undefined;
+  const isCategoryDetail = Boolean(categoryId && activeCategoryGroup);
 
   const viewMaterials = useMemo(() => {
+    if (categoryId && isCategoryGroup(activeView)) {
+      return clientMaterials.filter((material) => isMaterialInCategoryGroup(material, categoryId, activeView));
+    }
     if (activeView === "home") return clientMaterials;
 
     if (activeView === "worksheet") {
@@ -233,7 +244,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
     return clientMaterials.filter((material) =>
       activeView === "month" ? Boolean(material.secondary_category_id) : Boolean(material.category_id)
     );
-  }, [activeView, clientMaterials]);
+  }, [activeView, categoryId, clientMaterials]);
 
   const filteredMaterials = useMemo(() => {
     if (!normalizedQuery) return viewMaterials;
@@ -264,11 +275,11 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
   const selectedCategoryName = selectedMaterial ? getMaterialCategoryNames(selectedMaterial, clientCategories) : "미분류";
   const hasSearchResults = filteredMaterials.length > 0;
-  const shouldShowCategoryEmpty = Boolean(activeCategoryGroup) && clientCategories.length === 0 && !normalizedQuery && !isClientLoading;
+  const shouldShowCategoryEmpty = !isCategoryDetail && Boolean(activeCategoryGroup) && clientCategories.length === 0 && !normalizedQuery && !isClientLoading;
   const shouldShowViewEmpty = !isHome && !activeCategoryGroup && !shouldShowCategoryEmpty && viewMaterials.length === 0 && !normalizedQuery && !isClientLoading;
-  const shouldShowGroupEmpty = Boolean(activeCategoryGroup) && viewMaterials.length > 0 && visibleCategories.length === 0 && !normalizedQuery && !isClientLoading;
+  const shouldShowGroupEmpty = !isCategoryDetail && Boolean(activeCategoryGroup) && viewMaterials.length > 0 && visibleCategories.length === 0 && !normalizedQuery && !isClientLoading;
   const shouldShowBoard = (hasSearchResults || !normalizedQuery) && (
-    isHome
+    isCategoryDetail ? Boolean(detailCategory) : isHome
       ? !normalizedQuery || filteredMaterials.length > 0
       : activeLibrarySection
         ? filteredMaterials.length > 0
@@ -333,10 +344,10 @@ export default function Board({ settings, categories, materials, hasDataError = 
               const Icon = item.icon;
 
               return (
-                <button
+                <Link
                   key={item.id}
-                  type="button"
-                  onClick={() => setActiveView(item.id)}
+                  href={isCategoryGroup(item.id) ? categoryHref(item.id) : "/?view=" + item.id}
+                  prefetch={false}
                   className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full border px-3 py-2 text-base font-extrabold transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-[50px] sm:px-5 sm:py-2.5 sm:text-lg"
                   style={{
                     backgroundColor: isActive
@@ -346,7 +357,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                     color: isActive ? item.accent : viewSettings.text_color,
                     boxShadow: isActive ? "0 4px 12px rgba(15, 23, 42, 0.10)" : "none"
                   }}
-                  aria-pressed={isActive}
+                  aria-current={isActive ? "page" : undefined}
                 >
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8"
@@ -359,7 +370,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                     <Icon className="h-4 w-4 stroke-[2.5] sm:h-[18px] sm:w-[18px]" />
                   </span>
                   {item.label}
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -368,7 +379,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
 
       <LibrarySectionNav
         activeSection={activeLibrarySection}
-        onChange={setActiveView}
+        onChange={navigateView}
         textColor={viewSettings.text_color}
         backgroundColor={viewSettings.header_background_color}
         borderColor={viewSettings.card_border_color}
@@ -389,6 +400,12 @@ export default function Board({ settings, categories, materials, hasDataError = 
       ) : null}
 
       <section className="flex-1 px-4 py-5 sm:px-8 sm:py-6">
+        {isCategoryDetail && activeCategoryGroup && detailCategory ? (
+          <nav aria-label="카테고리 경로" className="mx-auto mb-4 flex max-w-7xl flex-wrap items-center gap-3 text-sm">
+            <Link href={categoryHref(activeCategoryGroup)} prefetch={false} className="font-bold underline underline-offset-4">{activeCategoryGroup === "month" ? "월별" : "주제별"} 전체보기</Link>
+            <span aria-hidden="true">/</span><span aria-current="page">{detailCategory.name}</span>
+          </nav>
+        ) : null}
         {clientDataError ? (
           <EmptyState
             title="자료실 데이터를 불러오지 못했습니다."
@@ -485,13 +502,22 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 cardMode="worksheet"
               />
             ) : null}
-            {activeCategoryGroup ? (
+            {activeCategoryGroup && isCategoryDetail && detailCategory ? (
+              <CategoryColumn
+                category={detailCategory}
+                materials={filteredMaterials}
+                settings={viewSettings}
+                onSelectMaterial={openMaterial}
+                onDownloadMaterial={recordDownload}
+                prioritizeFirstRow
+              />
+            ) : null}
+            {activeCategoryGroup && !isCategoryDetail ? (
               <CategoryCardGrid
                 categories={visibleCategories}
                 materials={normalizedQuery ? filteredMaterials : viewMaterials}
                 group={activeCategoryGroup}
                 settings={viewSettings}
-                onSelectCategory={setOverviewCategory}
               />
             ) : null}
           </div>
@@ -511,19 +537,6 @@ export default function Board({ settings, categories, materials, hasDataError = 
           관리자 로그인
         </a>
       </footer>
-
-      {overviewCategory && activeCategoryGroup ? (
-        <CategoryOverviewModal
-          category={overviewCategory}
-          materials={clientMaterials.filter((material) =>
-            isMaterialInCategoryGroup(material, overviewCategory.id, activeCategoryGroup)
-          )}
-          settings={viewSettings}
-          onSelectMaterial={openMaterial}
-          onDownloadMaterial={recordDownload}
-          onClose={() => setOverviewCategory(null)}
-        />
-      ) : null}
 
       {selectedMaterial && selectedMaterialMode === "ppt" ? (
         <MaterialModal

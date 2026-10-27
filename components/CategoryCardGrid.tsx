@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import { categoryHref } from "@/lib/library-navigation";
 import type { Category, CategoryGroup, PptMaterial, SiteSettings } from "@/lib/types";
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
@@ -8,7 +10,6 @@ type Props = {
   materials: PptMaterial[];
   group: CategoryGroup;
   settings: BoardSettings;
-  onSelectCategory: (category: Category) => void;
 };
 
 type CategoryPresentation = {
@@ -16,7 +17,7 @@ type CategoryPresentation = {
   visual: string;
 };
 
-export default function CategoryCardGrid({ categories, materials, group, settings, onSelectCategory }: Props) {
+export default function CategoryCardGrid({ categories, materials, group, settings }: Props) {
   const isMonthGroup = group === "month";
 
   return (
@@ -42,10 +43,10 @@ export default function CategoryCardGrid({ categories, materials, group, setting
           const categoryColor = category.column_color || settings.default_column_color;
 
           return (
-            <button
+            <Link
               key={category.id}
-              type="button"
-              onClick={() => onSelectCategory(category)}
+              href={categoryHref(group, category.id)}
+              prefetch={false}
               className="group flex min-h-[142px] w-full items-center justify-between gap-5 overflow-hidden rounded-lg p-5 text-left transition duration-200 hover:-translate-y-px hover:brightness-[0.985] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:min-h-[150px] sm:p-6"
               style={{
                 backgroundColor: `color-mix(in srgb, ${categoryColor} 80%, ${settings.card_border_color})`,
@@ -81,7 +82,7 @@ export default function CategoryCardGrid({ categories, materials, group, setting
                   <span className="text-[38px] leading-none sm:text-[44px]">{presentation.visual}</span>
                 )}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>

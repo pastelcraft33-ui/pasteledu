@@ -40,7 +40,8 @@ export default function HomeBanner({ banners }: { banners: Banner[] }) {
   const move = (offset: number) => setIndex((currentIndex + offset + slides.length) % slides.length);
 
   return (
-    <section aria-label="메인 배너" aria-roledescription="슬라이드" className="mx-auto w-full max-w-[1264px] px-4 pt-5 sm:px-8 sm:pt-6">
+    <section aria-label="메인 배너" aria-roledescription="슬라이드" className="w-full px-4 pt-5 sm:px-8 sm:pt-6">
+      <div className="mx-auto w-full max-w-7xl px-3 sm:px-4">
       <div
         className="relative overflow-hidden rounded-2xl bg-gray-50"
         onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
@@ -89,6 +90,7 @@ export default function HomeBanner({ banners }: { banners: Banner[] }) {
           <button type="button" onClick={() => setPaused(!paused)} aria-label={paused ? "배너 자동 재생" : "배너 자동 재생 일시정지"} title={paused ? "자동 재생" : "일시정지"} className="ml-2 flex h-8 w-8 items-center justify-center rounded-full border text-gray-600">{paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}</button>
         </div>
       ) : null}
+      </div>
     </section>
   );
 }
