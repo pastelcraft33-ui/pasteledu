@@ -34,37 +34,52 @@ export default function AdminHomeBanners({ settings, onChanged, setMessage }: Pr
   }
 
   async function upload(event: ChangeEvent<HTMLInputElement>, id?: string) {
-    const file = event.target.files?.[0];
+    const selectedFiles = Array.from(event.target.files ?? []);
+    const files = id ? selectedFiles.slice(0, 1) : selectedFiles;
     event.target.value = "";
-    if (!file) return;
-    if (!isAllowedImageFile(file)) { setMessage("메인 배너는 JPG, PNG, WEBP 이미지만 등록할 수 있습니다."); return; }
-    if (file.size > 15 * 1024 * 1024) { setMessage("배너 이미지는 15MB 이하로 등록해주세요."); return; }
-    const bannerId = id ?? crypto.randomUUID();
-    setUploading(bannerId);
+    if (files.length === 0) return;
+    for (const file of files) {
+      if (!isAllowedImageFile(file)) { setMessage(file.name + ": JPG, PNG, WEBP 이미지만 등록할 수 있습니다."); return; }
+      if (file.size > 15 * 1024 * 1024) { setMessage(file.name + ": 배너 이미지는 한 장당 15MB 이하로 등록해주세요."); return; }
+    }
+    setUploading("0 / " + files.length);
     setMessage("");
-    try {
-      // 대형 원본도 화면에 필요한 크기로 저장해 첫 배너의 로딩을 줄입니다.
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, 2400 / bitmap.width, 2400 / bitmap.height);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) { bitmap.close(); throw new Error("이미지 변환 실패"); }
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close();
-      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("이미지 변환 실패")), "image/webp", 0.88));
-      const path = "home-banners/" + createSafeStorageFileName("banner.webp");
-      const { error } = await supabase.storage.from("site-assets").upload(path, blob, { contentType: "image/webp", cacheControl: "31536000", upsert: false });
-      if (error) throw error;
-      const url = supabase.storage.from("site-assets").getPublicUrl(path).data.publicUrl;
-      if (id) change(id, { image_url: url });
-      else setBanners((current) => [...current, { id: bannerId, image_url: url, alt: "", link_url: "", enabled: true }]);
-      setMessage("이미지를 업로드했습니다. 메인 배너 저장을 누르면 사이트에 반영됩니다.");
-    } catch (error) {
-      console.error("메인 배너 업로드 실패", error);
-      setMessage("이미지를 업로드하지 못했습니다. 파일과 인터넷 연결, Storage 권한을 확인해주세요.");
-    } finally { setUploading(null); }
+    let completed = 0;
+    const failed: string[] = [];
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const bannerId = id ?? crypto.randomUUID();
+      setUploading((index + 1) + " / " + files.length);
+      try {
+        // 대형 원본도 화면에 필요한 크기로 저장해 첫 배너의 로딩을 줄입니다.
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 2400 / bitmap.width, 2400 / bitmap.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) { bitmap.close(); throw new Error("이미지 변환 실패"); }
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("이미지 변환 실패")), "image/webp", 0.88));
+        const path = "home-banners/" + createSafeStorageFileName("banner.webp");
+        const { error } = await supabase.storage.from("site-assets").upload(path, blob, { contentType: "image/webp", cacheControl: "31536000", upsert: false });
+        if (error) throw error;
+        const url = supabase.storage.from("site-assets").getPublicUrl(path).data.publicUrl;
+        if (id) change(id, { image_url: url });
+        else setBanners((current) => [...current, { id: bannerId, image_url: url, alt: "", link_url: "", enabled: true }]);
+        completed += 1;
+      } catch (error) {
+        console.error("메인 배너 업로드 실패", error);
+        failed.push(file.name);
+      }
+    }
+    setUploading(null);
+    if (failed.length > 0) {
+      setMessage(completed + "장 업로드 완료, " + failed.length + "장 실패 (" + failed.join(", ") + "). 파일과 인터넷 연결, Storage 권한을 확인해주세요." + (completed ? " 업로드된 배너는 메인 배너 저장을 눌러 반영해주세요." : ""));
+    } else {
+      setMessage(completed + "장의 이미지를 업로드했습니다. 메인 배너 저장을 누르면 사이트에 반영됩니다.");
+    }
   }
 
   async function save(event: FormEvent) {
@@ -96,8 +111,8 @@ export default function AdminHomeBanners({ settings, onChanged, setMessage }: Pr
   return (
     <form onSubmit={save} className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-5">
-        <div><h2 className="text-lg font-bold">메인 배너 관리</h2><p className="mt-1 text-sm text-gray-500">권장 크기 1200 × 440px · JPG, PNG, WEBP · 최대 15MB. 이미지 한 장만으로 등록할 수 있습니다.</p></div>
-        <label className={"inline-flex items-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-bold " + (busy ? "opacity-50" : "cursor-pointer")}><ImagePlus className="h-4 w-4" />{uploading ? "이미지 업로드 중..." : "배너 이미지 추가"}<input type="file" accept=".jpg,.jpeg,.png,.webp" disabled={busy} onChange={(event) => upload(event)} className="sr-only" /></label>
+        <div><h2 className="text-lg font-bold">메인 배너 관리</h2><p className="mt-1 text-sm text-gray-500">권장 크기 1200 × 440px · JPG, PNG, WEBP · 한 장당 최대 15MB</p></div>
+        <label className={"inline-flex items-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-bold " + (busy ? "opacity-50" : "cursor-pointer")}><ImagePlus className="h-4 w-4" />{uploading ? "이미지 업로드 중 (" + uploading + ")" : "배너 이미지 추가"}<input type="file" multiple accept=".jpg,.jpeg,.png,.webp" disabled={busy} onChange={(event) => upload(event)} className="sr-only" /></label>
       </div>
       {banners.length === 0 ? <p className="border border-dashed p-8 text-center text-sm text-gray-500">등록된 메인 배너가 없습니다.</p> : null}
       {banners.map((banner, index) => (
