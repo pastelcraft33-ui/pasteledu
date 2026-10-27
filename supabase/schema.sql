@@ -158,6 +158,11 @@ create table if not exists public.site_settings (
 );
 
 alter table public.site_settings
+add column if not exists home_banners jsonb not null default '[
+  {"id":"culture","image_url":"/home-banner-culture.jpeg","alt":"다양한 문화 넓어지는 우리","link_url":"","enabled":true}
+]'::jsonb;
+
+alter table public.site_settings
 add column if not exists banner_background_color text default '#fce7f3';
 
 alter table public.site_settings

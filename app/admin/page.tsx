@@ -9,17 +9,19 @@ import AdminDesignSettings from "@/components/AdminDesignSettings";
 import AdminMaterials from "@/components/AdminMaterials";
 import AdminOrderManager from "@/components/AdminOrderManager";
 import AdminSiteSettings from "@/components/AdminSiteSettings";
+import AdminHomeBanners from "@/components/AdminHomeBanners";
 import AdminThumbnails from "@/components/AdminThumbnails";
 import { isAllowedAdminEmail } from "@/lib/admin";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, PptMaterialWithCategory, SiteSettings } from "@/lib/types";
 
-type Tab = "materials" | "categories" | "site" | "design" | "bulk" | "order" | "thumbnails" | "analytics";
+type Tab = "materials" | "categories" | "site" | "home-banners" | "design" | "bulk" | "order" | "thumbnails" | "analytics";
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "materials", label: "PPT 자료 관리" },
   { id: "categories", label: "카테고리 관리" },
   { id: "site", label: "사이트 정보 설정" },
+  { id: "home-banners", label: "메인 배너 관리" },
   { id: "design", label: "디자인 설정" },
   { id: "bulk", label: "대량 업로드" },
   { id: "order", label: "순서 관리" },
@@ -285,6 +287,9 @@ export default function AdminPage() {
           ) : null}
           {tab === "site" ? (
             <AdminSiteSettings settings={settings} onChanged={loadData} setMessage={setMessage} />
+          ) : null}
+          {tab === "home-banners" ? (
+            <AdminHomeBanners settings={settings} onChanged={loadData} setMessage={setMessage} />
           ) : null}
           {tab === "design" ? (
             <AdminDesignSettings settings={settings} onChanged={loadData} setMessage={setMessage} />

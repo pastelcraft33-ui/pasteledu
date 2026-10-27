@@ -53,6 +53,14 @@ export type PptMaterialEvent = {
   created_at: string;
 };
 
+export type HomeBanner = {
+  id: string;
+  image_url: string;
+  alt: string;
+  link_url: string;
+  enabled: boolean;
+};
+
 export type SiteSettings = {
   id: string;
   site_name: string;
@@ -60,6 +68,7 @@ export type SiteSettings = {
   header_description: string | null;
   logo_url: string | null;
   favicon_url: string | null;
+  home_banners?: HomeBanner[];
   background_color: string;
   header_background_color: string;
   banner_background_color: string;

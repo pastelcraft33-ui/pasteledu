@@ -7,6 +7,8 @@ import CategoryOverviewModal from "@/components/CategoryOverviewModal";
 import CategoryColumn from "@/components/CategoryColumn";
 import EmptyState from "@/components/EmptyState";
 import LibraryBanner from "@/components/LibraryBanner";
+import HomeBanner from "@/components/HomeBanner";
+import { getHomeBanners } from "@/lib/home-banners";
 import LibrarySectionNav from "@/components/LibrarySectionNav";
 import MaterialModal from "@/components/MaterialModal";
 import WorksheetModal from "@/components/WorksheetModal";
@@ -371,6 +373,8 @@ export default function Board({ settings, categories, materials, hasDataError = 
         backgroundColor={viewSettings.header_background_color}
         borderColor={viewSettings.card_border_color}
       />
+
+      {isHome && !isClientLoading && !clientDataError ? <HomeBanner banners={getHomeBanners(viewSettings.home_banners)} /> : null}
 
       {!isHome && activeView !== "worksheet" && customBanner ? (
         <LibraryBanner
