@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import "./globals.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const supabase = createServerSupabaseClient();

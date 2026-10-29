@@ -16,6 +16,8 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AgeGroup, Category, CategoryGroup, LibrarySection, MaterialFormState, PptMaterialWithCategory } from "@/lib/types";
 import { getWorksheetFiles } from "@/lib/worksheet-utils";
 import { createWorksheetPdfPreview } from "@/lib/worksheet-preview";
+import { requestPptPdf } from "@/lib/request-ppt-pdf";
+import { getPptPdfUrl } from "@/lib/ppt-pdf";
 
 type Props = {
   categories: Category[];
@@ -415,12 +417,11 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
     };
 
     const result = form.id
-      ? await supabase.from("ppt_materials").update(payload).eq("id", form.id)
-      : await supabase.from("ppt_materials").insert(payload);
-
-    setIsSaving(false);
+      ? await supabase.from("ppt_materials").update(payload).eq("id", form.id).select("id").single()
+      : await supabase.from("ppt_materials").insert(payload).select("id").single();
 
     if (result.error) {
+      setIsSaving(false);
       console.error("Material save failed", result.error);
       if (isMissingDatabaseColumn(result.error, "age_groups")) {
         setMessage("연령 정보를 저장할 DB 컬럼이 없습니다. Supabase SQL Editor에서 supabase/add-age-groups.sql을 먼저 실행해주세요.");
@@ -447,7 +448,18 @@ export default function AdminMaterials({ categories, materials, onChanged, setMe
       return;
     }
 
-    const successMessage = form.id ? "자료가 수정되었습니다." : "자료가 등록되었습니다.";
+    let successMessage = form.id ? "자료가 수정되었습니다." : "자료가 등록되었습니다.";
+    const previousMaterial = materials.find((item) => item.id === form.id);
+    if (form.file_url && (!previousMaterial || previousMaterial.file_url !== form.file_url || !getPptPdfUrl(previousMaterial))) {
+      setMessage("자료 저장 완료. PDF 미리보기를 생성하고 있습니다.");
+      try {
+        await requestPptPdf(result.data.id);
+        successMessage += " PDF 미리보기가 준비되었습니다.";
+      } catch (error) {
+        successMessage += ` PPT 원본은 정상 저장되었습니다. ${error instanceof Error ? error.message : "PDF 미리보기는 관리자 메뉴에서 다시 생성해주세요."}`;
+      }
+    }
+    setIsSaving(false);
     closeForm();
     setMessage(successMessage);
     await onChanged();

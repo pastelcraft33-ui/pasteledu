@@ -1,11 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import WorksheetPdfPage from "@/components/WorksheetPdfPage";
 import type { PptMaterial, SiteSettings } from "@/lib/types";
 import { getWorksheetFiles, isWorksheetImage } from "@/lib/worksheet-utils";
+import { getPptPdfUrl } from "@/lib/ppt-pdf";
+
+const PptPdfViewer = dynamic(() => import("@/components/PptPdfViewer"), { ssr: false });
 
 type BoardSettings = Omit<SiteSettings, "id" | "created_at" | "updated_at">;
 
@@ -36,8 +40,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
   const totalWorksheetSlides = worksheetSlideCounts.reduce((total, count) => total + count, 0);
   const currentWorksheetSlide =
     worksheetSlideCounts.slice(0, worksheetFileIndex).reduce((total, count) => total + count, 0) + worksheetPage;
-  const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
-  const previewUrl = fileUrl ? createOfficePreviewUrl(fileUrl) : "";
+  const previewUrl = getPptPdfUrl(material);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -54,7 +57,6 @@ export default function MaterialModal({ material, categoryName, settings, onClos
   }, [onClose]);
 
   useEffect(() => {
-    setIsPreviewLoaded(false);
     setWorksheetFileIndex(0);
     setWorksheetPage(1);
     setWorksheetPageCounts({});
@@ -75,12 +77,6 @@ export default function MaterialModal({ material, categoryName, settings, onClos
     setWorksheetPage(direction === -1 ? worksheetSlideCounts[nextFileIndex] : 1);
   }
 
-  useEffect(() => {
-    if (!previewUrl) return;
-
-    setIsPreviewLoaded(false);
-  }, [previewUrl]);
-
   return (
     <div className="fixed inset-0 z-50 bg-black text-gray-950" role="dialog" aria-modal="true" aria-label={`${material.title} PPT 미리보기`}>
       <button
@@ -96,38 +92,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
       <div className="flex h-full flex-col lg:flex-row">
         <div className="flex min-h-0 flex-1 items-center justify-center bg-black pt-14 lg:pt-0">
           {previewUrl ? (
-            <div className="relative h-full min-h-[62vh] w-full">
-              <iframe
-                key={previewUrl}
-                src={previewUrl}
-                title={`${material.title} PPT 미리보기`}
-                className="h-full w-full border-0 bg-black"
-                allowFullScreen
-                loading="eager"
-                onLoad={() => setIsPreviewLoaded(true)}
-              />
-              {!isPreviewLoaded ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-white">
-                  <div className="max-w-md">
-                    {material.thumbnail_url ? (
-                      <Image
-                        src={material.thumbnail_url}
-                        alt={`${material.title} 썸네일`}
-                        width={640}
-                        height={360}
-                        unoptimized
-                        className="mx-auto mb-5 aspect-video w-full max-w-sm rounded-md object-cover opacity-80"
-                      />
-                    ) : null}
-                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-white/25 border-t-white" />
-                    <p className="mt-4 text-sm font-semibold">PPT 미리보기를 불러오는 중입니다...</p>
-                    <p className="mt-2 text-xs leading-5 text-white/70">
-                      첫 미리보기는 외부 뷰어가 PPT를 변환하느라 시간이 걸릴 수 있습니다.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <PptPdfViewer key={`${material.id}:${previewUrl}`} url={previewUrl} title={material.title} />
           ) : (
             <div className="mx-4 flex w-full max-w-4xl flex-col items-center justify-center rounded-lg bg-white p-8 text-center">
               {material.thumbnail_url ? (
@@ -142,7 +107,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
               ) : (
                 <div className="flex aspect-video w-full items-center justify-center rounded-md bg-gray-100 text-sm text-gray-500">PPT 파일이 없습니다.</div>
               )}
-              <p className="mt-5 text-sm text-gray-600">미리볼 PPT 파일 URL이 등록되어 있지 않습니다.</p>
+              <p className="mt-5 text-sm text-gray-600">{fileUrl ? "PDF 미리보기를 준비 중입니다. 원본 PPT는 다운로드할 수 있습니다." : "미리볼 PPT 파일이 등록되어 있지 않습니다."}</p>
             </div>
           )}
         </div>
@@ -307,8 +272,4 @@ export default function MaterialModal({ material, categoryName, settings, onClos
       </div>
     </div>
   );
-}
-
-function createOfficePreviewUrl(fileUrl: string) {
-  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
 }

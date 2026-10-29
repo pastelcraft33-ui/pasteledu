@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminAnalytics from "@/components/AdminAnalytics";
+import AdminPdfPreviews from "@/components/AdminPdfPreviews";
 import AdminBulkUpload from "@/components/AdminBulkUpload";
 import AdminCategories from "@/components/AdminCategories";
 import AdminDesignSettings from "@/components/AdminDesignSettings";
@@ -15,10 +16,11 @@ import { isAllowedAdminEmail } from "@/lib/admin";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Category, PptMaterialWithCategory, SiteSettings } from "@/lib/types";
 
-type Tab = "materials" | "categories" | "site" | "home-banners" | "design" | "bulk" | "order" | "thumbnails" | "analytics";
+type Tab = "materials" | "categories" | "site" | "home-banners" | "design" | "bulk" | "order" | "thumbnails" | "analytics" | "pdf-previews";
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "materials", label: "PPT 자료 관리" },
+  { id: "pdf-previews", label: "PDF 미리보기" },
   { id: "categories", label: "카테고리 관리" },
   { id: "site", label: "사이트 정보 설정" },
   { id: "home-banners", label: "메인 배너 관리" },
@@ -274,6 +276,7 @@ export default function AdminPage() {
         {isLoading ? <p className="mt-6">데이터를 불러오는 중...</p> : null}
 
         <section className="mt-6">
+          {tab === "pdf-previews" ? <AdminPdfPreviews materials={materials} onChanged={loadData} /> : null}
           {tab === "materials" ? (
             <AdminMaterials
               categories={categories}

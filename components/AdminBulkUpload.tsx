@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { createSafeStorageFileName, getTitleFromFileName, isAllowedPptFile, parseTagsInput } from "@/lib/file-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { requestPptPdf } from "@/lib/request-ppt-pdf";
 import type { BulkUploadFileItem, Category, CategoryGroup, LibrarySection, PptMaterialWithCategory } from "@/lib/types";
 
 type Props = {
@@ -17,6 +18,7 @@ type UploadResult = {
   successCount: number;
   failedCount: number;
   failedNames: string[];
+  previewWarnings: string[];
 };
 
 export default function AdminBulkUpload({ categories, materials, onChanged, setMessage, onMoveToMaterials }: Props) {
@@ -87,6 +89,7 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
 
     let successCount = 0;
     const failedNames: string[] = [];
+    const previewWarnings: string[] = [];
     const parsedTags = parseTagsInput(tags);
 
     for (let index = 0; index < items.length; index += 1) {
@@ -115,14 +118,22 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
           file_name: item.originalName,
           is_downloadable: isDownloadable,
           sort_order: Number(startSortOrder) + index
-        });
+        }).select("id").single();
 
         if (insertResult.error) {
           throw insertResult.error;
         }
 
         successCount += 1;
-        setItemStatus(item.id, "success");
+        try {
+          setMessage(`${index + 1} / ${items.length}: ${item.originalName} PDF 변환 중`);
+          await requestPptPdf(insertResult.data.id);
+          setItemStatus(item.id, "success");
+        } catch (error) {
+          const warning = error instanceof Error ? error.message : "PDF 미리보기 생성 실패";
+          previewWarnings.push(item.originalName);
+          setItemStatus(item.id, "success", `PPT 저장 완료. ${warning}`);
+        }
       } catch (error) {
         console.error("Bulk upload failed", item.originalName, error);
         const errorMessage = error instanceof Error ? error.message : "업로드 또는 등록에 실패했습니다.";
@@ -135,11 +146,12 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
     const summary = {
       successCount,
       failedCount: failedNames.length,
-      failedNames
+      failedNames,
+      previewWarnings
     };
     setResult(summary);
     await onChanged();
-    setMessage(`대량 업로드가 완료되었습니다. 성공: ${summary.successCount}개, 실패: ${summary.failedCount}개`);
+    setMessage(`대량 업로드가 완료되었습니다. 성공: ${summary.successCount}개, 실패: ${summary.failedCount}개, PDF 재시도 필요: ${previewWarnings.length}개`);
   }
 
   function setItemStatus(id: string, status: BulkUploadFileItem["status"], errorMessage?: string) {
@@ -332,6 +344,7 @@ export default function AdminBulkUpload({ categories, materials, onChanged, setM
               </ul>
             </div>
           ) : null}
+          {result.previewWarnings.length ? <p className="mt-3 text-sm text-amber-800">PPT 원본은 저장되었지만 PDF 생성에 실패한 자료: {result.previewWarnings.join(", ")}. PDF 미리보기 메뉴에서 다시 생성해주세요.</p> : null}
           <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
             업로드된 자료는 썸네일 없이 등록되었습니다. 썸네일, 설명, 태그, 주제별/월별 카테고리 수정이 필요하면 “PPT 자료 관리” 탭에서 수정해주세요.
           </p>

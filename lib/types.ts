@@ -30,6 +30,8 @@ export type PptMaterial = {
   thumbnail_url: string | null;
   file_url: string | null;
   file_name: string | null;
+  preview_pdf_url?: string | null;
+  preview_source_url?: string | null;
   worksheet_url: string | null;
   worksheet_file_name: string | null;
   worksheet_urls: string[];

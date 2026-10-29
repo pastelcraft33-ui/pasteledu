@@ -215,6 +215,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_wstJyrjPLsQvcoe5vcoudw_0nmit6DZ
 
 ## 보안 안내
 
+PPT 원본을 유지하는 PDF 미리보기 자동 변환 설정은 [PDF 미리보기 가이드](docs/ppt-pdf-preview-guide.md)를 확인하세요. 기존 서비스에서는 전용 SQL 실행과 Vercel 변환기 프로젝트 연결, 기존 자료의 일괄 변환을 완료한 뒤 사이트를 배포해야 합니다.
+
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`는 공개되어도 되는 키입니다.
 - `service_role` key는 절대 프론트엔드 코드에 넣지 마세요.
 - `service_role` key는 절대 GitHub에 올리지 마세요.
