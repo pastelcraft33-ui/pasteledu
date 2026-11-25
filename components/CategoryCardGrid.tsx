@@ -37,9 +37,14 @@ export default function CategoryCardGrid({ categories, materials, group, setting
       <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {categories.map((category, index) => {
           const presentation = getCategoryPresentation(category, group);
-          const materialCount = materials.filter((material) =>
+          const categoryMaterials = materials.filter((material) =>
             group === "month" ? material.secondary_category_id === category.id : material.category_id === category.id
-          ).length;
+          );
+          const materialCount = categoryMaterials.length;
+          const keywords = Array.from(new Map(categoryMaterials.flatMap((material) => material.tags ?? [])
+            .map((tag) => tag.trim().normalize("NFC"))
+            .filter(Boolean)
+            .map((tag) => [tag.toLocaleLowerCase(), tag])).values());
           const categoryColor = category.column_color || settings.default_column_color;
 
           return (
@@ -57,9 +62,19 @@ export default function CategoryCardGrid({ categories, materials, group, setting
             >
               <span className="min-w-0">
                 <span className="block break-keep text-lg font-black leading-snug sm:text-xl">{category.name}</span>
-                <span className="mt-3 block break-keep text-sm font-medium leading-5 opacity-70 sm:text-[15px] sm:leading-6">
-                  {category.description?.trim() || presentation.description}
-                </span>
+                {isMonthGroup ? (
+                  <span className="mt-3 flex flex-wrap gap-1.5">
+                    {keywords.map((keyword) => (
+                      <span key={keyword} className="max-w-full rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold leading-5 text-gray-700 [overflow-wrap:anywhere] sm:text-sm">
+                        {keyword}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="mt-3 block break-keep text-sm font-medium leading-5 opacity-70 sm:text-[15px] sm:leading-6">
+                    {category.description?.trim() || presentation.description}
+                  </span>
+                )}
               </span>
 
               <span
