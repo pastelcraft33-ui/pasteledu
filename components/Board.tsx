@@ -69,6 +69,18 @@ export default function Board({ settings, categories, materials, hasDataError = 
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [query, setQuery] = useState("");
   const activeView = initialView;
+  const [popularIds, setPopularIds] = useState<string[] | null>(null);
+  const [rankingError, setRankingError] = useState(false);
+  useEffect(() => {
+    if (initialView !== "month" || categoryId) return;
+    let active = true;
+    createBrowserSupabaseClient().rpc("popular_materials").then(({data, error}) => {
+      if (!active) return;
+      setRankingError(Boolean(error));
+      setPopularIds(error ? null : (data ?? []).map((row: {material_id: string}) => row.material_id));
+    });
+    return () => { active = false; };
+  }, [initialView, categoryId]);
   const [selectedMaterial, setSelectedMaterial] = useState<PptMaterial | null>(null);
   const [selectedMaterialMode, setSelectedMaterialMode] = useState<"ppt" | "worksheet">("ppt");
   const [urlMaterialId, setUrlMaterialId] = useState<string | null>(null);
@@ -232,7 +244,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
     if (categoryId && isCategoryGroup(activeView)) {
       return clientMaterials.filter((material) => isMaterialInCategoryGroup(material, categoryId, activeView));
     }
-    if (activeView === "home") return clientMaterials;
+    if (activeView === "home" || activeView === "month") return clientMaterials;
 
     if (activeView === "worksheet") {
       return clientMaterials.filter((material) => getWorksheetFiles(material).length > 0);
@@ -242,9 +254,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
       return clientMaterials.filter((material) => getMaterialLibrarySections(material).includes(activeView));
     }
 
-    return clientMaterials.filter((material) =>
-      activeView === "month" ? Boolean(material.secondary_category_id) : Boolean(material.category_id)
-    );
+    return clientMaterials.filter((material) => Boolean(material.category_id));
   }, [activeView, categoryId, clientMaterials]);
 
   const filteredMaterials = useMemo(() => {
@@ -522,6 +532,25 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 settings={viewSettings}
               />
             ) : null}
+          </div>
+        ) : null}
+        {activeCategoryGroup === "month" && !isCategoryDetail && !isClientLoading && !clientDataError ? (
+          <div className="mx-auto mt-8 max-w-7xl">
+            {rankingError ? <p role="alert">인기순 자료를 불러오지 못했습니다. 새로고침해주세요.</p> : popularIds === null ? <p>인기순 자료를 불러오는 중입니다...</p> : (
+              <CategoryColumn
+                category={null}
+                titleOverride="최근 15일 인기 PPT"
+                descriptionOverride="최근 15일 조회수 높은 순으로 보여드립니다."
+                materials={clientMaterials.filter(material => !normalizedQuery || [material.title, material.description ?? "", ...(material.tags ?? [])].join(" ").toLowerCase().includes(normalizedQuery)).sort((a, b) => {
+                  const rankA = popularIds.indexOf(a.id);
+                  const rankB = popularIds.indexOf(b.id);
+                  return (rankA < 0 ? Infinity : rankA) - (rankB < 0 ? Infinity : rankB) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                })}
+                settings={viewSettings}
+                onSelectMaterial={openMaterial}
+                onDownloadMaterial={recordDownload}
+              />
+            )}
           </div>
         ) : null}
       </section>
