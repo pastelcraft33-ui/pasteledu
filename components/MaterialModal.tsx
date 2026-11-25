@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import MaterialComments from "./MaterialComments";
 import dynamic from "next/dynamic";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -268,6 +269,7 @@ export default function MaterialModal({ material, categoryName, settings, onClos
               </a>
             </section>
           ) : null}
+          <MaterialComments key={material.id} materialId={material.id} />
         </aside>
       </div>
     </div>
