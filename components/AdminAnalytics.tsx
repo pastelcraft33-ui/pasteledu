@@ -19,7 +19,7 @@ type MaterialStats = {
 
 type PeriodFilter = "all" | "7days" | "30days" | "thisMonth" | "custom";
 
-const chartColors = ["#f28ca8", "#82b6e8", "#79c7b2", "#efc767", "#aa98d6"];
+const chartColors = ["#be185d", "#2563eb", "#059669", "#ca8a04", "#7c3aed", "#ea580c", "#0891b2", "#475569", "#65a30d", "#a16207"];
 const chartWidth = 800;
 const chartHeight = 340;
 const chartLeft = 78;
@@ -157,8 +157,8 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
       <section className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h3 className="text-lg font-bold">자료별 최근 14일 조회수 TOP 5</h3>
-            <p className="mt-1 text-sm text-gray-500">최근 14일 동안 상위 5개 자료의 날짜별 PPT 조회 추이</p>
+            <h3 className="text-lg font-bold">자료별 최근 14일 조회수 TOP 10</h3>
+            <p className="mt-1 text-sm text-gray-500">오늘 포함 최근 14일 · 상위 10개 자료의 날짜별 PPT 조회 추이</p>
           </div>
           <span className="text-sm text-gray-500">{recentTrend.dates[0]?.label} ~ {recentTrend.dates[recentTrend.dates.length - 1]?.label}</span>
         </div>
@@ -185,6 +185,44 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
             </ol>
           </div>
         ) : null}
+      </section>
+
+      <section className="border-t bg-white py-5">
+        <h3 className="text-lg font-bold">전체 자료 최근 14일 조회수</h3>
+        <p className="mt-1 text-sm text-gray-500">오늘 포함 · 일별 조회수와 전일 대비 증감 · 오늘 수치는 집계 중</p>
+        {isLoading ? <p className="mt-4">통계를 불러오는 중...</p> : (
+          <div className="mt-4 max-h-[640px] overflow-auto">
+            <table className="w-full min-w-[1500px] text-right text-sm tabular-nums">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr>
+                  <th className="p-3 text-left">자료명</th>
+                  {recentTrend.dates.map(date => <th key={date.key} className="p-2 whitespace-nowrap">{date.label}</th>)}
+                  <th className="p-3">14일 합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTrend.allItems.map(item => <tr key={item.material.id} className="border-b">
+                  <th scope="row" className="min-w-[220px] max-w-[300px] p-3 text-left font-medium">{item.material.title}</th>
+                  {item.counts.map((count, index) => {
+                    const delta = index === 0 ? null : count - item.counts[index - 1];
+                    return <td key={recentTrend.dates[index].key} className="p-2">
+                      <span>{count.toLocaleString()}</span>
+                      {delta !== null && <small className={`block ${delta > 0 ? "text-red-700" : delta < 0 ? "text-blue-700" : "text-gray-500"}`} aria-label={`전일 대비 ${delta}회`}>{delta > 0 ? "+" : ""}{delta}</small>}
+                    </td>;
+                  })}
+                  <td className="p-3 font-bold">{item.total.toLocaleString()}</td>
+                </tr>)}
+              </tbody>
+              <tfoot className="bg-gray-50 font-bold">
+                <tr><th className="p-3 text-left">전체 합계</th>
+                  {recentTrend.dates.map((date, i) => <td key={date.key} className="p-2">{recentTrend.allItems.reduce((sum, item) => sum + item.counts[i], 0).toLocaleString()}</td>)}
+                  <td className="p-3">{recentTrend.allItems.reduce((sum, item) => sum + item.total, 0).toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+            {!recentTrend.allItems.length && <p className="p-4">등록된 자료가 없습니다.</p>}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -312,11 +350,10 @@ function buildRecentTrend(materials: PptMaterialWithCategory[], events: PptMater
     const counts = countsByMaterial.get(material.id) ?? Array(dates.length).fill(0);
     return { material, counts, total: counts.reduce((sum, count) => sum + count, 0) };
   });
-  const items = rankedMaterials
-    .sort((a, b) => b.total - a.total || a.material.title.localeCompare(b.material.title))
-    .slice(0, 5);
+  const allItems = rankedMaterials.sort((a, b) => b.total - a.total || a.material.title.localeCompare(b.material.title));
+  const items = allItems.filter(item => item.total > 0).slice(0, 10);
 
-  return { dates, items: items.some((item) => item.total > 0) ? items : [] };
+  return { dates, items, allItems };
 }
 
 function dateKey(date: Date) {
@@ -333,7 +370,7 @@ function ClickLineChart({ dates, items }: { dates: TrendDate[]; items: TrendItem
   const yForCount = (count: number) => chartBottom - (count / axisMax) * plotHeight;
 
   return (
-    <div className="w-full overflow-hidden" role="img" aria-label="최근 14일 동안 상위 자료 5개의 날짜별 조회수 선 그래프">
+    <div className="w-full overflow-hidden" role="img" aria-label="최근 14일 동안 상위 자료 10개의 날짜별 조회수 선 그래프">
       <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-auto w-full" preserveAspectRatio="xMinYMin meet">
         {tickValues.map((value, index) => {
           const y = chartTop + (plotHeight * index) / 4;
