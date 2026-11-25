@@ -191,40 +191,6 @@ export default function AdminAnalytics({ materials, setMessage }: Props) {
         ) : null}
       </section>
 
-      <section className="border-t bg-white py-5">
-        <h3 className="text-lg font-bold">전체 자료 최근 {trendDays}일 조회수</h3>
-        <p className="mt-1 text-sm text-gray-500">오늘 수치는 집계 중 · 전일 대비는 오늘과 어제의 조회수 차이입니다.</p>
-        {isLoading ? <p className="mt-4">통계를 불러오는 중...</p> : (
-          <div className="mt-4 max-h-[640px] overflow-auto">
-            <table className="w-full min-w-[1500px] text-right text-sm tabular-nums">
-              <thead className="sticky top-0 z-10 bg-gray-50">
-                <tr>
-                  <th className="sticky left-0 bg-gray-50 p-3 text-left">자료명</th>
-                  <th className="min-w-[140px] p-3">오늘 / 전일 대비</th>
-                  {recentTrend.dates.map(date => <th key={date.key} className="p-2 whitespace-nowrap">{date.label}</th>)}
-                  <th className="p-3">기간 합계</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTrend.allItems.map(item => <tr key={item.material.id} className="border-b">
-                  <th scope="row" className="sticky left-0 min-w-[220px] max-w-[300px] bg-white p-3 text-left font-medium">{item.material.title}</th>
-                  <td className="p-3"><DailyChange counts={item.counts} /></td>
-                  {item.counts.map((count, index) => <td key={recentTrend.dates[index].key} className="p-2">{count.toLocaleString()}</td>)}
-                  <td className="p-3 font-bold">{item.total.toLocaleString()}</td>
-                </tr>)}
-              </tbody>
-              <tfoot className="bg-gray-50 font-bold">
-                <tr><th className="sticky left-0 bg-gray-50 p-3 text-left">전체 합계</th>
-                  <td className="p-3"><DailyChange counts={recentTrend.dates.map((_, i) => recentTrend.allItems.reduce((sum, item) => sum + item.counts[i], 0))} /></td>
-                  {recentTrend.dates.map((date, i) => <td key={date.key} className="p-2">{recentTrend.allItems.reduce((sum, item) => sum + item.counts[i], 0).toLocaleString()}</td>)}
-                  <td className="p-3">{recentTrend.allItems.reduce((sum, item) => sum + item.total, 0).toLocaleString()}</td>
-                </tr>
-              </tfoot>
-            </table>
-            {!recentTrend.allItems.length && <p className="p-4">등록된 자료가 없습니다.</p>}
-          </div>
-        )}
-      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryCard label="전체 클릭" value={`${totalClicks}회`} />
@@ -322,17 +288,6 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 type TrendDate = { key: string; label: string };
 type TrendItem = { material: PptMaterialWithCategory; counts: number[]; total: number };
 
-function DailyChange({ counts }: { counts: number[] }) {
-  const today = counts[counts.length - 1] ?? 0;
-  const yesterday = counts[counts.length - 2] ?? 0;
-  const delta = today - yesterday;
-  return <div className="whitespace-nowrap">
-    <div className="font-bold">{today.toLocaleString()}회</div>
-    <div className={`mt-1 text-xs font-medium ${delta > 0 ? "text-red-700" : delta < 0 ? "text-blue-700" : "text-gray-500"}`}>
-      {delta === 0 ? "변동 없음" : `${Math.abs(delta).toLocaleString()}회 ${delta > 0 ? "증가" : "감소"}`}
-    </div>
-  </div>;
-}
 
 function buildRecentTrend(materials: PptMaterialWithCategory[], events: PptMaterialEvent[], days: number) {
   const today = new Date();
