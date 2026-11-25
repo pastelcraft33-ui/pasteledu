@@ -539,7 +539,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
             {rankingError ? <p role="alert">인기순 자료를 불러오지 못했습니다. 새로고침해주세요.</p> : popularIds === null ? <p>인기순 자료를 불러오는 중입니다...</p> : (
               <CategoryColumn
                 category={null}
-                titleOverride="최근 15일 인기 PPT"
+                titleOverride="인기 교육 컨텐츠"
                 descriptionOverride="최근 15일 조회수 높은 순으로 보여드립니다."
                 materials={clientMaterials.filter(material => !normalizedQuery || [material.title, material.description ?? "", ...(material.tags ?? [])].join(" ").toLowerCase().includes(normalizedQuery)).sort((a, b) => {
                   const rankA = popularIds.indexOf(a.id);
