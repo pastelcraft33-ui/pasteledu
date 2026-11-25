@@ -72,7 +72,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
   const [popularIds, setPopularIds] = useState<string[] | null>(null);
   const [rankingError, setRankingError] = useState(false);
   useEffect(() => {
-    if (initialView !== "month" || categoryId) return;
+    if (!isCategoryGroup(initialView) || categoryId) return;
     let active = true;
     createBrowserSupabaseClient().rpc("popular_materials").then(({data, error}) => {
       if (!active) return;
@@ -244,7 +244,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
     if (categoryId && isCategoryGroup(activeView)) {
       return clientMaterials.filter((material) => isMaterialInCategoryGroup(material, categoryId, activeView));
     }
-    if (activeView === "home" || activeView === "month") return clientMaterials;
+    if (activeView === "home" || isCategoryGroup(activeView)) return clientMaterials;
 
     if (activeView === "worksheet") {
       return clientMaterials.filter((material) => getWorksheetFiles(material).length > 0);
@@ -534,7 +534,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
             ) : null}
           </div>
         ) : null}
-        {activeCategoryGroup === "month" && !isCategoryDetail && !isClientLoading && !clientDataError ? (
+        {activeCategoryGroup && !isCategoryDetail && !isClientLoading && !clientDataError ? (
           <div className="mx-auto mt-8 max-w-7xl">
             {rankingError ? <p role="alert">인기순 자료를 불러오지 못했습니다. 새로고침해주세요.</p> : popularIds === null ? <p>인기순 자료를 불러오는 중입니다...</p> : (
               <CategoryColumn
