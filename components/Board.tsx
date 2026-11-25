@@ -15,6 +15,7 @@ import LibrarySectionNav from "@/components/LibrarySectionNav";
 import MaterialModal from "@/components/MaterialModal";
 import WorksheetModal from "@/components/WorksheetModal";
 import SearchBar from "@/components/SearchBar";
+import PopularSubjects from "@/components/PopularSubjects";
 import CategoryCardGrid from "@/components/CategoryCardGrid";
 import { libraryBannerDefaults, resolveLibraryBannerImage, resolveLibraryBannerTitle } from "@/lib/library-banners";
 import { getWorksheetFiles } from "@/lib/worksheet-utils";
@@ -314,6 +315,7 @@ export default function Board({ settings, categories, materials, hasDataError = 
                 borderColor={viewSettings.card_border_color}
               />
             </div>
+            <PopularSubjects />
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="자료실 메뉴">
             <a
